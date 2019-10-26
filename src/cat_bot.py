@@ -7,7 +7,7 @@ from jetbot import Camera, bgr8_to_jpeg
 print('initialize camera')
 camera = Camera.instance(width=300, height=300)
 cat_count = 0
-debug = False
+debug = True
 
 # create save directory
 import os
@@ -120,7 +120,7 @@ def execute(change):
     # compute all detected objects
     detections = model(image)
 
-    if debug:
+    if debug and (len(detections[0])) > 0:
         print(detections[0])
 
     # draw all detections on image
@@ -129,7 +129,7 @@ def execute(change):
         #cv2.rectangle(image, (int(width * bbox[0]), int(height * bbox[1])), (int(width * bbox[2]), int(height * bbox[3])), (255, 0, 0), 2)
 
     # select detections that match selected class label
-    matching_detections = [d for d in detections[0] if d['label'] == 17]
+    matching_detections = [d for d in detections[0] if d['label'] in [16,17.18] and d['confidence'] > 0.50]
 
     # get detection closest to center of field of view and draw it
     det = closest_detection(matching_detections)
@@ -169,5 +169,6 @@ print('start cat hunt')
 execute({'new': camera.value})
 
 camera.unobserve_all()
+print('calling observe')
 camera.observe(execute, names='value')
 
