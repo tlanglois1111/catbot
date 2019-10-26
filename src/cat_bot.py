@@ -5,8 +5,9 @@ from jetbot import Camera, bgr8_to_jpeg
 
 # init camera
 print('initialize camera')
-camera = Camera.instance(width=1280, height=720)
+camera = Camera.instance(width=300, height=300)
 cat_count = 0
+debug = False
 
 # create save directory
 import os
@@ -22,7 +23,7 @@ except FileExistsError:
 from uuid import uuid1
 
 def save_snapshot(directory, image):
-    print('saving snapshot #', cat_count)
+    print('saving snapshot: ', cat_count)
     image_path = os.path.join(directory, str(uuid1()) + '.jpg')
     with open(image_path, 'wb') as f:
         f.write(image)
@@ -31,7 +32,6 @@ def save_image(image):
     global image_dir, cat_count
     save_snapshot(image_dir, image)
     cat_count = len(os.listdir(image_dir))
-    print(cat_count)
 
 from jetbot import ObjectDetector
 
@@ -120,10 +120,12 @@ def execute(change):
     # compute all detected objects
     detections = model(image)
 
+    if debug:
+        print(detections[0])
+
     # draw all detections on image
-    print(detections[0])
-    for det in detections[0]:
-        bbox = det['bbox']
+    #for det in detections[0]:
+        #bbox = det['bbox']
         #cv2.rectangle(image, (int(width * bbox[0]), int(height * bbox[1])), (int(width * bbox[2]), int(height * bbox[3])), (255, 0, 0), 2)
 
     # select detections that match selected class label
@@ -133,8 +135,9 @@ def execute(change):
     det = closest_detection(matching_detections)
     if det is not None:
         print('detected cat')
+        print(detections[0])
         bbox = det['bbox']
-        #cv2.rectangle(image, (int(width * bbox[0]), int(height * bbox[1])), (int(width * bbox[2]), int(height * bbox[3])), (0, 255, 0), 5)
+        cv2.rectangle(image, (int(width * bbox[0]), int(height * bbox[1])), (int(width * bbox[2]), int(height * bbox[3])), (0, 255, 0), 5)
         if (cur_time - last_save) > 5000:
             last_save = cur_time
             save_image(bgr8_to_jpeg(image))
@@ -143,13 +146,28 @@ def execute(change):
 
         print('center detection')
         center = detection_center(det)
+        print("center:", center)
         robot.set_motors(
-            float(0 + 0.4 * center[0]),
-            float(0 - 0.4 * center[0])
+            float(0.4 + 0.8 * center[0]),
+            float(0.4 - 0.8 * center[0])
         )
+
+import signal
+import sys
+def signal_handler(sig, frame):
+    print('You pressed Ctrl+C!')
+    camera.unobserve_all()
+    time.sleep(1.0)
+    robot.stop()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+print('Press Ctrl+C to exit')
+#signal.pause()
 
 print('start cat hunt')
 execute({'new': camera.value})
 
 camera.unobserve_all()
 camera.observe(execute, names='value')
+
