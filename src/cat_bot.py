@@ -22,7 +22,10 @@ xscale = model_width * (camera_width / model_width)
 yscale = model_height * (camera_height / model_height)
 camera = Camera.instance(width=camera_width, height=camera_height, capture_width=3280, capture_height=2464)  # W = 3280 H = 2464   1920 x 1080
 cat_count = 0
+seconds_between_pics = 1.0
 debug = False
+v2_coco_labels_to_capture = [1, 16, 17, 18]
+
 
 # create save directory
 
@@ -45,13 +48,13 @@ class AsyncWrite(threading.Thread):
         self.directory = directory
 
     def run(self):
-        global cat_count
+        global cat_count, debug
 
         image_path = os.path.join(self.directory, str(uuid1()) + '.jpg')
         with open(image_path, 'wb') as f:
             f.write(self.image)
         cat_count = len(os.listdir(image_dir))
-        print('saved snapshot: ', cat_count)
+        if debug: print('saved snapshot: ', cat_count)
 
 
 def save_image(image):
@@ -62,7 +65,6 @@ def save_image(image):
 
 print('loading mobilenet_v2')
 model = ObjectDetector('ssd_mobilenet_v2_coco.engine')
-print('done')
 
 # setup models
 collision_model = torchvision.models.alexnet(pretrained=False)
@@ -134,7 +136,7 @@ def shutdown():
 
 
 def execute(change):
-    global last_save, xscale, yscale
+    global last_save, xscale, yscale, seconds_between_pics, debug, v2_coco_labels_to_capture
 
     cur_time = time.time()
 
@@ -160,16 +162,16 @@ def execute(change):
     #     cv2.rectangle(image, (int(width * bbox[0]), int(height * bbox[1])), (int(width * bbox[2]), int(height * bbox[3])), (255, 0, 0), 2)
 
     # select detections that match selected class label
-    matching_detections = [d for d in detections[0] if d['label'] in [1, 16, 17, 18] and d['confidence'] > 0.50]
+    matching_detections = [d for d in detections[0] if d['label'] in v2_coco_labels_to_capture and d['confidence'] > 0.50]
 
     # get detection closest to center of field of view and draw it
     det = closest_detection(matching_detections)
     if det is not None:
-        print('detected cat')
-        print(detections[0])
+        if debug: print('detected possible cat')
+        if debug: print(detections[0])
         bbox = det['bbox']
         # cv2.rectangle(image, (int(width * bbox[0]), int(height * bbox[1])),(int(width * bbox[2]), int(height * bbox[3])), (0, 255, 0), 5)
-        if (cur_time - last_save) > 5.0:
+        if (cur_time - last_save) > seconds_between_pics:
             last_save = cur_time
 
             xmin = int(xscale * bbox[0])
@@ -188,20 +190,18 @@ def execute(change):
 
             save_image(bgr8_to_jpeg(crop))
         else:
-            print('too soon to save another image')
+            if debug: print('too soon to save another image')
 
-        print('center detection')
+        if debug: print('center detection')
         center = detection_center(det)
-        print("center:", center)
-        if center[0] > 0.0:
-            robot.right(2.0 * center[0])
-        else:
-            robot.left(abs(2.0 * center[0]))
-        #robot.set_motors(
-        #    float(0.4 + 0.4 * center[0]),
-        #    float(0.4 - 0.4 * center[1])
-        #)
-        #time.sleep(0.2)
+        if debug: print("center:", center)
+
+        move_speed = 2.0 * center[0]
+        if abs(move_speed) > 0.3:
+            if move_speed > 0.0:
+                robot.right(move_speed)
+            else:
+                robot.left(abs(move_speed))
 
     else:
         robot.stop()
