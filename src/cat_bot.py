@@ -194,18 +194,19 @@ def execute(change):
         center = detection_center(det)
         print("center:", center)
         if center[0] > 0.0:
-            robot.right(1.8 * center[0])
+            robot.right(2.0 * center[0])
         else:
-            robot.left(abs(1.8 * center[0]))
+            robot.left(abs(2.0 * center[0]))
         #robot.set_motors(
         #    float(0.4 + 0.4 * center[0]),
         #    float(0.4 - 0.4 * center[1])
         #)
-        time.sleep(0.15)
-        robot.stop()
+        #time.sleep(0.2)
 
-    elif debug and (len(detections[0])) > 0:
-        print(detections[0])
+    else:
+        robot.stop()
+        if debug and (len(detections[0])) > 0:
+            print(detections[0])
 
 
 def signal_handler(sig, frame):
