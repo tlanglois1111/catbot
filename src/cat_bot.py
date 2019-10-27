@@ -20,7 +20,7 @@ model_width = 300
 model_height = 300
 xscale = model_width * (camera_width / model_width)
 yscale = model_height * (camera_height / model_height)
-camera = Camera.instance(width=camera_width, height=camera_height, capture_width=3280, capture_height=2464)  # W = 3280 H = 2464   1920 x 1080
+camera = Camera.instance(width=camera_width, height=camera_height, capture_width=3280, capture_height=2464)  # W = 3280 H = 2464   1920 x 1080   1280 x 720
 cat_count = 0
 seconds_between_pics = 1.0
 debug = False
@@ -81,10 +81,10 @@ stdev = 255.0 * np.array([0.229, 0.224, 0.225])
 normalize = torchvision.transforms.Normalize(mean, stdev)
 
 
-def preprocess(camera_value):
+def preprocess(camera_value, width, height):
     global device, normalize
     x = camera_value
-    x = cv2.resize(x, (224, 224))
+    x = cv2.resize(x, (width, height))
     x = cv2.cvtColor(x, cv2.COLOR_BGR2RGB)
     x = x.transpose((2, 0, 1))
     x = torch.from_numpy(x).float()
@@ -136,17 +136,17 @@ def shutdown():
 
 
 def execute(change):
-    global last_save, xscale, yscale, seconds_between_pics, debug, v2_coco_labels_to_capture
+    global last_save, xscale, yscale, seconds_between_pics, debug, v2_coco_labels_to_capture, model_width, model_height
 
     cur_time = time.time()
 
     image = change['new']
     resized_image = image
     if model_width != camera_width and model_height != camera_height:
-        resized_image = cv2.resize(image, (model_width, model_height))
+        resized_image = cv2.resize(image, (model_width, model_height), interpolation=cv2.INTER_AREA)
 
     # execute collision model to determine if blocked
-    #collision_output = collision_model(preprocess(image)).detach().cpu()
+    #collision_output = collision_model(preprocess(image,model_224,224)).detach().cpu()
     #prob_blocked = float(F.softmax(collision_output.flatten(), dim=0)[0])
     # turn left if blocked
     #if prob_blocked > 0.5:
@@ -217,10 +217,10 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 print('start cat hunt')
-#while True:
-#    execute({'new': camera.value})
-
 robot.stop()
 camera.unobserve_all()
 print('calling observe')
 camera.observe(execute, names='value')
+
+#while True:
+#    execute({'new': camera.value})
