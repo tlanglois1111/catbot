@@ -1,10 +1,10 @@
 import time
 import signal
 import sys
+import threading
 import os
 import torch
 import torchvision
-import torch.nn.functional as F
 import cv2
 import numpy as np
 from uuid import uuid1
@@ -13,9 +13,16 @@ from jetbot import Camera, bgr8_to_jpeg, ObjectDetector, Robot
 
 # init camera
 print('initialize camera')
-camera = Camera.instance(width=300, height=300)
+
+camera_width = 300
+camera_height = 300
+model_width = 300
+model_height = 300
+xscale = model_width * (camera_width / model_width)
+yscale = model_height * (camera_height / model_height)
+camera = Camera.instance(width=camera_width, height=camera_height, capture_width=3280, capture_height=2464)  # W = 3280 H = 2464   1920 x 1080
 cat_count = 0
-debug = True
+debug = False
 
 # create save directory
 
@@ -27,20 +34,30 @@ try:
 except FileExistsError:
     print('Directories not created because they already exist')
 
-# save image methods
 
+# Inherting the base class 'Thread'
+class AsyncWrite(threading.Thread):
 
-def save_snapshot(directory, image):
-    print('saving snapshot: ', cat_count)
-    image_path = os.path.join(directory, str(uuid1()) + '.jpg')
-    with open(image_path, 'wb') as f:
-        f.write(image)
+    def __init__(self, directory, image):
+        # calling superclass init
+        threading.Thread.__init__(self)
+        self.image = image
+        self.directory = directory
+
+    def run(self):
+        global cat_count
+
+        image_path = os.path.join(self.directory, str(uuid1()) + '.jpg')
+        with open(image_path, 'wb') as f:
+            f.write(self.image)
+        cat_count = len(os.listdir(image_dir))
+        print('saved snapshot: ', cat_count)
 
 
 def save_image(image):
     global image_dir, cat_count
-    save_snapshot(image_dir, image)
-    cat_count = len(os.listdir(image_dir))
+    background = AsyncWrite(image_dir, image)
+    background.start()
 
 
 print('loading mobilenet_v2')
@@ -80,10 +97,6 @@ print('initialize robot')
 
 robot = Robot()
 
-# run bot
-width = 300
-height = 300
-
 
 def detection_center(detection):
     # Computes the center x, y coordinates of the object
@@ -113,30 +126,41 @@ def closest_detection(detections):
 last_save = 0.0
 
 
+def shutdown():
+    camera.unobserve_all()
+    time.sleep(1.0)
+    robot.stop()
+    sys.exit(0)
+
+
 def execute(change):
-    global last_save
+    global last_save, xscale, yscale
+
     cur_time = time.time()
 
     image = change['new']
+    resized_image = image
+    if model_width != camera_width and model_height != camera_height:
+        resized_image = cv2.resize(image, (model_width, model_height))
 
     # execute collision model to determine if blocked
-    collision_output = collision_model(preprocess(image)).detach().cpu()
-    prob_blocked = float(F.softmax(collision_output.flatten(), dim=0)[0])
+    #collision_output = collision_model(preprocess(image)).detach().cpu()
+    #prob_blocked = float(F.softmax(collision_output.flatten(), dim=0)[0])
     # turn left if blocked
-    if prob_blocked > 0.5:
-        robot.left(0.3)
-        return
+    #if prob_blocked > 0.5:
+    #    robot.left(0.4)
+    #    return
 
     # compute all detected objects
-    detections = model(image)
+    detections = model(resized_image)
 
     # draw all detections on image
     # for det in detections[0]:
-    # bbox = det['bbox']
-    # cv2.rectangle(image, (int(width * bbox[0]), int(height * bbox[1])), (int(width * bbox[2]), int(height * bbox[3])), (255, 0, 0), 2)
+    #     bbox = det['bbox']
+    #     cv2.rectangle(image, (int(width * bbox[0]), int(height * bbox[1])), (int(width * bbox[2]), int(height * bbox[3])), (255, 0, 0), 2)
 
     # select detections that match selected class label
-    matching_detections = [d for d in detections[0] if d['label'] in [16, 17.18] and d['confidence'] > 0.50]
+    matching_detections = [d for d in detections[0] if d['label'] in [1, 16, 17, 18] and d['confidence'] > 0.50]
 
     # get detection closest to center of field of view and draw it
     det = closest_detection(matching_detections)
@@ -144,22 +168,40 @@ def execute(change):
         print('detected cat')
         print(detections[0])
         bbox = det['bbox']
-        cv2.rectangle(image, (int(width * bbox[0]), int(height * bbox[1])),
-                      (int(width * bbox[2]), int(height * bbox[3])), (0, 255, 0), 5)
-        if (cur_time - last_save) > 5000.0:
+        # cv2.rectangle(image, (int(width * bbox[0]), int(height * bbox[1])),(int(width * bbox[2]), int(height * bbox[3])), (0, 255, 0), 5)
+        if (cur_time - last_save) > 5.0:
             last_save = cur_time
-            save_image(bgr8_to_jpeg(image))
+
+            xmin = int(xscale * bbox[0])
+            ymin = int(yscale * bbox[1])
+            xmax = int(xscale * bbox[2])
+            ymax = int(yscale * bbox[3])
+            if xmin < 0:
+                xmin = 0
+            if ymin < 0:
+                ymin = 0
+            if xmax > camera_width:
+                xmax = camera_width-1
+            if ymax > camera_height:
+                ymax = camera_height-1
+            crop = image[ymin:ymax, xmin:xmax]
+
+            save_image(bgr8_to_jpeg(crop))
         else:
             print('too soon to save another image')
 
         print('center detection')
         center = detection_center(det)
         print("center:", center)
-        robot.set_motors(
-            float(0.4 + 0.8 * center[0]),
-            float(0.4 - 0.8 * center[0])
-        )
-        time.sleep(0.2)
+        if center[0] > 0.0:
+            robot.right(1.8 * center[0])
+        else:
+            robot.left(abs(1.8 * center[0]))
+        #robot.set_motors(
+        #    float(0.4 + 0.4 * center[0]),
+        #    float(0.4 - 0.4 * center[1])
+        #)
+        time.sleep(0.15)
         robot.stop()
 
     elif debug and (len(detections[0])) > 0:
@@ -168,19 +210,16 @@ def execute(change):
 
 def signal_handler(sig, frame):
     print('You pressed Ctrl+C!')
-    camera.unobserve_all()
-    time.sleep(1.0)
-    robot.stop()
-    sys.exit(0)
+    shutdown()
 
 
 signal.signal(signal.SIGINT, signal_handler)
-print('Press Ctrl+C to exit')
-# signal.pause()
 
 print('start cat hunt')
-execute({'new': camera.value})
+#while True:
+#    execute({'new': camera.value})
 
+robot.stop()
 camera.unobserve_all()
 print('calling observe')
 camera.observe(execute, names='value')
