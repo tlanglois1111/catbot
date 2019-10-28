@@ -3,6 +3,7 @@ import signal
 import sys
 import threading
 import os
+import csv
 import torch
 import torchvision
 import cv2
@@ -26,7 +27,6 @@ seconds_between_pics = 1.0
 debug = False
 v2_coco_labels_to_capture = [1, 16, 17, 18]
 
-
 # create save directory
 
 image_dir = 'dataset/cats'
@@ -41,25 +41,33 @@ except FileExistsError:
 # Inherting the base class 'Thread'
 class AsyncWrite(threading.Thread):
 
-    def __init__(self, directory, image):
+    def __init__(self, directory, filename, image, tf_list):
         # calling superclass init
         threading.Thread.__init__(self)
         self.image = image
         self.directory = directory
+        self.filename = filename
+        self.tf_list = tf_list
 
     def run(self):
         global cat_count, debug
 
-        image_path = os.path.join(self.directory, str(uuid1()) + '.jpg')
+        image_path = os.path.join(self.directory, self.filename+'.jpg')
         with open(image_path, 'wb') as f:
             f.write(self.image)
         cat_count = len(os.listdir(image_dir))
         if debug: print('saved snapshot: ', cat_count)
 
+        csv_path = os.path.join(self.directory, self.filename+'.csv')
+        with open(csv_path, 'a') as outcsv:
+            writer = csv.writer(outcsv)
+            writer.writerows(self.tf_list)
+            outcsv.close()
 
-def save_image(image):
+
+def save_image(image, filename, tf_list):
     global image_dir, cat_count
-    background = AsyncWrite(image_dir, image)
+    background = AsyncWrite(image_dir, filename, image, tf_list)
     background.start()
 
 
@@ -164,16 +172,11 @@ def execute(change):
     # select detections that match selected class label
     matching_detections = [d for d in detections[0] if d['label'] in v2_coco_labels_to_capture and d['confidence'] > 0.50]
 
-    # get detection closest to center of field of view and draw it
-    det = closest_detection(matching_detections)
-    if det is not None:
-        if debug: print('detected possible cat')
-        if debug: print(detections[0])
-        bbox = det['bbox']
-        # cv2.rectangle(image, (int(width * bbox[0]), int(height * bbox[1])),(int(width * bbox[2]), int(height * bbox[3])), (0, 255, 0), 5)
-        if (cur_time - last_save) > seconds_between_pics:
-            last_save = cur_time
-
+    tf_image_list = []
+    if len(matching_detections) > 0:
+        filename = str(uuid1())
+        for d in matching_detections:
+            bbox = d['bbox']
             xmin = int(xscale * bbox[0])
             ymin = int(yscale * bbox[1])
             xmax = int(xscale * bbox[2])
@@ -186,11 +189,17 @@ def execute(change):
                 xmax = camera_width-1
             if ymax > camera_height:
                 ymax = camera_height-1
-            crop = image[ymin:ymax, xmin:xmax]
 
-            save_image(bgr8_to_jpeg(crop))
-        else:
-            if debug: print('too soon to save another image')
+            tf_image_desc = [filename+'jpg', camera_width, camera_height, xmin, xmax, ymin, ymax, int(d['label'])]
+            tf_image_list.append(tf_image_desc)
+
+        save_image(bgr8_to_jpeg(image), filename, tf_image_list)
+
+    # get detection closest to center of field of view and center bot
+    det = closest_detection(matching_detections)
+    if det is not None:
+        if debug: print('detected possible cat')
+        if debug: print(detections[0])
 
         if debug: print('center detection')
         center = detection_center(det)
