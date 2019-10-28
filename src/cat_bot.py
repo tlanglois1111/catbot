@@ -190,7 +190,7 @@ def execute(change):
             if ymax > camera_height:
                 ymax = camera_height-1
 
-            tf_image_desc = [filename+'jpg', camera_width, camera_height, xmin, xmax, ymin, ymax, int(d['label'])]
+            tf_image_desc = [filename+'.jpg', camera_width, camera_height, int(d['label']), xmin, ymin, xmax, ymax]
             tf_image_list.append(tf_image_desc)
 
         save_image(bgr8_to_jpeg(image), filename, tf_image_list)
