@@ -3,6 +3,8 @@ import signal
 import sys
 import threading
 import os
+import logging
+import logging.config
 import csv
 import torch
 import torchvision
@@ -11,9 +13,50 @@ import numpy as np
 from uuid import uuid1
 from jetbot import Camera, bgr8_to_jpeg, ObjectDetector, Robot
 
+logging_config = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+        }
+    },
+    'handlers': {
+        'default_handler': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'level': 'DEBUG',
+            'formatter': 'standard',
+            'filename': 'cat_bot.log',
+            'maxBytes': 10000,
+            'backupCount': 3
+        },
+        'console': {
+            'class': 'logging.StreamHandler',
+            'level': 'DEBUG',
+            'formatter': 'standard',
+            'stream': 'ext://sys.stdout'
+        }
+    },
+    'loggers': {
+        '__main__': {
+            'handlers': ['default_handler'],
+            'level': 'INFO',
+            'propagate': False
+        }
+    },
+    'root': {
+        'handlers': ['default_handler'],
+        'level': 'INFO',
+        'propagate': False
+    }
+}
+
+
+logging.config.dictConfig(logging_config)
+logger = logging.getLogger(__name__)
 
 # init camera
-print('initialize camera')
+logger.info('initialize camera')
 
 camera_width = 300
 camera_height = 300
@@ -24,8 +67,8 @@ yscale = model_height * (camera_height / model_height)
 camera = Camera.instance(width=camera_width, height=camera_height, capture_width=3280, capture_height=2464)  # W = 3280 H = 2464   1920 x 1080   1280 x 720
 cat_count = 0
 seconds_between_pics = 1.0
-debug = False
-v2_coco_labels_to_capture = [1, 16, 17, 18]
+v2_coco_labels_to_capture = [16, 17, 18]
+
 
 # create save directory
 
@@ -35,7 +78,7 @@ image_dir = 'dataset/cats'
 try:
     os.makedirs(image_dir)
 except FileExistsError:
-    print('Directories not created because they already exist')
+    logger.info('image directories not created because they already exist')
 
 
 # Inherting the base class 'Thread'
@@ -56,7 +99,7 @@ class AsyncWrite(threading.Thread):
         with open(image_path, 'wb') as f:
             f.write(self.image)
         cat_count = len(os.listdir(image_dir))
-        if debug: print('saved snapshot: ', cat_count)
+        logger.debug('saved snapshot: %d', cat_count)
 
         csv_path = os.path.join(self.directory, self.filename+'.csv')
         with open(csv_path, 'a') as outcsv:
@@ -71,15 +114,15 @@ def save_image(image, filename, tf_list):
     background.start()
 
 
-print('loading mobilenet_v2')
+logger.info('loading ssd_mobilenet_v2_coco')
 model = ObjectDetector('ssd_mobilenet_v2_coco.engine')
 
 # setup models
 collision_model = torchvision.models.alexnet(pretrained=False)
 collision_model.classifier[6] = torch.nn.Linear(collision_model.classifier[6].in_features, 2)
-print('load collision model')
+logger.info('load collision model')
 collision_model.load_state_dict(torch.load('best_model.pth'))
-print('done loading')
+logger.info('done loading')
 device = torch.device('cuda')
 collision_model = collision_model.to(device)
 
@@ -103,7 +146,7 @@ def preprocess(camera_value, width, height):
 
 
 # initialize bot
-print('initialize robot')
+logger.info('initialize robot')
 
 robot = Robot()
 
@@ -142,11 +185,14 @@ def shutdown():
     robot.stop()
     sys.exit(0)
 
-
+ping_counter = 58
 def execute(change):
-    global last_save, xscale, yscale, seconds_between_pics, debug, v2_coco_labels_to_capture, model_width, model_height
+    global last_save, xscale, yscale, seconds_between_pics, debug, v2_coco_labels_to_capture, model_width, model_height, ping_counter
 
-    cur_time = time.time()
+    ping_counter += 1
+    if ping_counter > 60:
+        logger.info("still observing")
+        ping_counter = 0
 
     image = change['new']
     resized_image = image
@@ -174,6 +220,8 @@ def execute(change):
 
     tf_image_list = []
     if len(matching_detections) > 0:
+        logger.info(matching_detections)
+
         filename = str(uuid1())
         for d in matching_detections:
             bbox = d['bbox']
@@ -198,12 +246,8 @@ def execute(change):
     # get detection closest to center of field of view and center bot
     det = closest_detection(matching_detections)
     if det is not None:
-        if debug: print('detected possible cat')
-        if debug: print(detections[0])
-
-        if debug: print('center detection')
         center = detection_center(det)
-        if debug: print("center:", center)
+        logger.debug("center: %s", center)
 
         move_speed = 2.0 * center[0]
         if abs(move_speed) > 0.3:
@@ -214,22 +258,23 @@ def execute(change):
 
     else:
         robot.stop()
-        if debug and (len(detections[0])) > 0:
-            print(detections[0])
+        if logger.isEnabledFor(logging.DEBUG) and (len(detections[0])) > 0:
+            logger.debug(detections[0])
 
 
 def signal_handler(sig, frame):
-    print('You pressed Ctrl+C!')
+    logger.info('You pressed Ctrl+C!')
     shutdown()
 
 
 signal.signal(signal.SIGINT, signal_handler)
 
-print('start cat hunt')
+logger.info('start cat hunt')
 robot.stop()
 camera.unobserve_all()
-print('calling observe')
+logger.info('calling observe')
 camera.observe(execute, names='value')
 
 #while True:
 #    execute({'new': camera.value})
+
