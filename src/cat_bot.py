@@ -58,13 +58,14 @@ logger = logging.getLogger(__name__)
 # init camera
 logger.info('initialize camera')
 
-camera_width = 300
-camera_height = 300
+camera_width = 600
+camera_height = 600
 model_width = 300
 model_height = 300
 xscale = model_width * (camera_width / model_width)
 yscale = model_height * (camera_height / model_height)
-camera = Camera.instance(width=camera_width, height=camera_height, capture_width=3280, capture_height=2464)  # W = 3280 H = 2464   1920 x 1080   1280 x 720
+#camera = Camera.instance(width=camera_width, height=camera_height, capture_width=3280, capture_height=2464)  # W = 3280 H = 2464   1920 x 1080   1280 x 720
+camera = Camera.instance(width=camera_width, height=camera_height, capture_width=1920, capture_height=1080)  # W = 3280 H = 2464   1920 x 1080   1280 x 720
 cat_count = 0
 seconds_between_pics = 1.0
 v2_coco_labels_to_capture = [16, 17, 18]
