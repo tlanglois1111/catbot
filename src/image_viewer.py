@@ -22,12 +22,12 @@ class ViewerPanel(wx.Panel):
         
         width, height = wx.DisplaySize()
 
-        self.class_labels = {0: 'background', 16: 'bird', 17: 'buddy', 18: 'jade'}
-        self.class_labels_rev = {'background': 0, 'jade':91, 'buddy':92}
+        self.class_labels = {0: 'background', 16: 'bird', 17: 'buddy', 18: 'jade', 91: 'buddy', 92: 'jade'}
+        self.class_labels_rev = {'background': 0, 'jade': 92, 'buddy': 91}
 
         self.csvFields = ['frame','width','height','class_id','xmin','ymin','xmax','ymax']
 
-        self.startingRow = 0
+        self.startingRow = 1
 #        self.startingRow = 1
         self.rowNumber = 0
 
@@ -139,17 +139,17 @@ class ViewerPanel(wx.Panel):
 
     #----------------------------------------------------------------------
     def cropPicture(self):
-        image = cv2.imread(self.imagePath + '\\' + self.frame)
+        image = cv2.imread(self.imagePath + '/' + self.frame)
 #        image = img_to_array(image)
         crop = image[self.ymin:self.ymax,self.xmin:self.xmax].copy()
         crop = cv2.resize(crop, (100, 100))
-        dir = self.imagePath + '\\crops'
+        dir = self.imagePath + '/crops'
         if not os.path.isdir(dir):
             os.mkdir(dir)
-        dir2 = dir + '\\' + self.class_labels[self.classification]
+        dir2 = dir + '/' + self.class_labels[self.classification]
         if not os.path.isdir(dir2):
             os.mkdir(dir2)
-        filename = dir2 + '\\crop_' + self.frame
+        filename = dir2 + '/crop_' + self.frame
         cv2.imwrite(filename, crop)
 
     #----------------------------------------------------------------------
@@ -162,7 +162,7 @@ class ViewerPanel(wx.Panel):
 
         self.line = self.csvRows[self.rowNumber]
         self.setImageParameters(self.line)
-        self.currentImage = self.imagePath + '\\' + self.frame
+        self.currentImage = self.imagePath + '/' + self.frame
 
         self.loadImage(self.currentImage)
 
@@ -178,7 +178,7 @@ class ViewerPanel(wx.Panel):
 
         self.line = self.csvRows[self.rowNumber]
         self.setImageParameters(self.line)
-        self.currentImage = self.imagePath + '\\' + self.frame
+        self.currentImage = self.imagePath + '/' + self.frame
 
         self.loadImage(self.currentImage)
 
@@ -193,7 +193,7 @@ class ViewerPanel(wx.Panel):
     #----------------------------------------------------------------------
     def loadTrainingCSV(self, msg):
         self.imagePath = msg;
-        self.trainFilename = self.imagePath+'\\2c2f7160-f9f2-11e9-956f-72b5f773b75d.csv'
+        self.trainFilename = self.imagePath+'/train.csv'
 
         with open(self.trainFilename, 'r') as csvfile:
             reader = csv.DictReader(csvfile, fieldnames=self.csvFields)
@@ -216,7 +216,7 @@ class ViewerPanel(wx.Panel):
             self.rowNumber += 1
 
         self.setImageParameters(self.line)
-        self.currentImage = self.imagePath + '\\' + self.frame
+        self.currentImage = self.imagePath + '/' + self.frame
         self.loadImage(self.currentImage)
 
     #----------------------------------------------------------------------
@@ -233,8 +233,13 @@ class ViewerPanel(wx.Panel):
         """
         Calls the nextPicture method
         """
-        self.newClassification = self.class_labels_rev[self.csvFields[3]]
-        self.line[self.csvFields[3]] = self.newClassification
+        if self.classification < 91:
+            # default to buddy class
+            self.newClassification = self.class_labels_rev['buddy']
+            self.classification = self.newClassification
+            print(self.classification)
+
+        self.line[self.csvFields[3]] = self.classification
         self.nextPicture()
 
     #----------------------------------------------------------------------
@@ -256,14 +261,23 @@ class ViewerPanel(wx.Panel):
         """
         Opens a DirDialog to allow the user to open a folder with pictures
         """
+
+        """ default to Jade instead of popping up dialog
         dlg = MyDialog()
 
         if dlg.ShowModal() == wx.ID_OK:
             self.newClassification = self.class_labels_rev[dlg.comboBox1.GetValue()]
             self.line[self.csvFields[3]] = self.newClassification
-            print (self.newClassification)
+            print(self.newClassification)
             self.setImageParameters(self.line)
             self.loadImage(self.currentImage)
+        """
+
+        self.newClassification = self.class_labels_rev['jade']
+        self.line[self.csvFields[3]] = self.newClassification
+        print(self.newClassification)
+        self.setImageParameters(self.line)
+        self.loadImage(self.currentImage)
 
     def onDone(self, event):
         tempCsvFile = NamedTemporaryFile(mode='w', delete=False, newline='')
@@ -313,9 +327,9 @@ class ViewerPanel(wx.Panel):
         tr_lst=img_lst[tr_idx,:].tolist()
         va_lst=img_lst[va_idx,:].tolist()
 
-        trainFile = open(self.imagePath+'\\training.csv', 'w', newline='')
+        trainFile = open(self.imagePath+'/training.csv', 'w', newline='')
         csvTrainWriter = csv.writer(trainFile)
-        valildationFile = open(self.imagePath+'\\validation.csv', 'w', newline='')
+        valildationFile = open(self.imagePath+'/validation.csv', 'w', newline='')
         csvValidationWriter = csv.writer(valildationFile)
 
         csvTrainWriter.writerow(self.csvFields)
