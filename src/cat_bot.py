@@ -68,7 +68,7 @@ yscale = model_height * (camera_height / model_height)
 camera = Camera.instance(width=camera_width, height=camera_height, capture_width=1920, capture_height=1080)  # W = 3280 H = 2464   1920 x 1080   1280 x 720
 cat_count = 0
 seconds_between_pics = 1.0
-v2_coco_labels_to_capture = [16, 17, 18]
+v2_coco_labels_to_capture = [16, 17, 18, 91, 92]
 
 
 # create save directory
@@ -115,8 +115,8 @@ def save_image(image, filename, tf_list):
     background.start()
 
 
-logger.info('loading ssd_mobilenet_v2_coco')
-model = ObjectDetector('ssd_mobilenet_v2_coco.engine')
+logger.info('loading catbot.engine')
+model = ObjectDetector('catbot.engine')
 
 # setup models
 collision_model = torchvision.models.alexnet(pretrained=False)
@@ -187,8 +187,10 @@ def shutdown():
     sys.exit(0)
 
 ping_counter = 58
+
+
 def execute(change):
-    global last_save, xscale, yscale, seconds_between_pics, debug, v2_coco_labels_to_capture, model_width, model_height, ping_counter
+    global ping_counter
 
     ping_counter += 1
     if ping_counter > 60:
