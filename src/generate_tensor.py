@@ -42,7 +42,7 @@ def create_tf_example(group):
         xmaxs.append(row['xmax'] / width)
         ymins.append(row['ymin'] / height)
         ymaxs.append(row['ymax'] / height)
-        classes_text.append(classes_text_map[92-int(row['class_id'])])
+        classes_text.append(classes_text_map[2-int(row['class_id'])])
         classes.append(int(row['class_id']))
 
     tf_example = tf.train.Example(features=tf.train.Features(feature={
@@ -68,22 +68,13 @@ def main(_):
     flags.DEFINE_string('output_path_train', '../dataset/tf/catbot_tf_train.record', 'output path to tensor')
     FLAGS = flags.FLAGS
     writer = tf.io.TFRecordWriter(FLAGS.output_path_train)
-    filename = image_path + '/train.csv'
-    #csvFields = ['frame','width','height','class_id','xmin','ymin','xmax','ymax']
+    filename = image_path + '/training.csv'
     csvRows = pd.read_csv(filename)
-
-#    with open(filename, 'r') as csvfile:
-#        reader = csv.DictReader(csvfile, fieldnames=csvFields)
-#        csvRows = list(reader)
 
     grouped = split(csvRows, 'filename')
     for group in grouped:
         tf_example = create_tf_example(group)
         writer.write(tf_example.SerializeToString())
-
-#    for line in csvRows:
-#        if line['frame'] != 'frame':
-#            tf_example = create_tf_example(line)
 
     writer.close()
 
@@ -91,16 +82,13 @@ def main(_):
     flags.DEFINE_string('output_path_test', '../dataset/tf/catbot_tf_test.record', 'output path to tensor')
     FLAGS = flags.FLAGS
     writer = tf.io.TFRecordWriter(FLAGS.output_path_test)
-    filename = image_path + '/test.csv'
-    csvFields = ['frame','width','height','class_id','xmin','ymin','xmax','ymax']
-    with open(filename, 'r') as csvfile:
-        reader = csv.DictReader(csvfile, fieldnames=csvFields)
-        csvRows = list(reader)
+    filename = image_path + '/validation.csv'
+    csvRows = pd.read_csv(filename)
 
-    for line in csvRows:
-        if line['frame'] != 'frame':
-            tf_example = create_tf_example(line)
-            writer.write(tf_example.SerializeToString())
+    grouped = split(csvRows, 'filename')
+    for group in grouped:
+        tf_example = create_tf_example(group)
+        writer.write(tf_example.SerializeToString())
 
     writer.close()
 

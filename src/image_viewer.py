@@ -22,10 +22,10 @@ class ViewerPanel(wx.Panel):
         
         width, height = wx.DisplaySize()
 
-        self.class_labels = {0: 'background', 16: 'bird', 17: 'buddy', 18: 'jade', 91: 'buddy', 92: 'jade'}
-        self.class_labels_rev = {'background': 0, 'jade': 92, 'buddy': 91}
+        self.class_labels = {0: 'background', 16: 'bird', 17: 'buddy', 18: 'jade', 1: 'buddy', 2: 'jade'}
+        self.class_labels_rev = {'background': 0, 'jade': 2, 'buddy': 1}
 
-        self.csvFields = ['frame','width','height','class_id','xmin','ymin','xmax','ymax']
+        self.csvFields = ['filename','width','height','class_id','xmin','ymin','xmax','ymax']
 
         self.startingRow = 1
 #        self.startingRow = 1
@@ -77,7 +77,8 @@ class ViewerPanel(wx.Panel):
         btnData = [("Previous", btnSizer, self.onPrevious),
                    ("Next", btnSizer, self.onNext),
                    ("Crop", btnSizer, self.onCrop),
-                   ("Update Class", btnSizer, self.onUpdateCSV),
+                   ("Update Jade", btnSizer, self.onUpdateCSVWithJade),
+                   ("Update Buddy", btnSizer, self.onUpdateCSVWithBuddy),
                    ("Save", btnSizer, self.onDone),
                    ("Validate", btnSizer, self.onValidate)]
         for data in btnData:
@@ -211,9 +212,12 @@ class ViewerPanel(wx.Panel):
         self.rowNumber = self.startingRow
         while True:
             self.line = self.csvRows[self.rowNumber]
-            if int(self.line[self.csvFields[3]]) < 91:
+            if int(self.line[self.csvFields[3]]) > 2 or self.rowNumber >= len(self.csvRows)-1:
                 break
             self.rowNumber += 1
+
+        if self.rowNumber == len(self.csvRows)-1:
+            self.rowNumber = 0
 
         self.setImageParameters(self.line)
         self.currentImage = self.imagePath + '/' + self.frame
@@ -233,13 +237,6 @@ class ViewerPanel(wx.Panel):
         """
         Calls the nextPicture method
         """
-        if self.classification < 91:
-            # default to buddy class
-            self.newClassification = self.class_labels_rev['buddy']
-            self.classification = self.newClassification
-            print(self.classification)
-
-        self.line[self.csvFields[3]] = self.classification
         self.nextPicture()
 
     #----------------------------------------------------------------------
@@ -257,7 +254,7 @@ class ViewerPanel(wx.Panel):
         self.previousPicture()
 
     #----------------------------------------------------------------------
-    def onUpdateCSV(self, event):
+    def onUpdateCSVWithJade(self, event):
         """
         Opens a DirDialog to allow the user to open a folder with pictures
         """
@@ -278,6 +275,31 @@ class ViewerPanel(wx.Panel):
         print(self.newClassification)
         self.setImageParameters(self.line)
         self.loadImage(self.currentImage)
+        self.nextPicture()
+
+    #----------------------------------------------------------------------
+    def onUpdateCSVWithBuddy(self, event):
+        """
+        Opens a DirDialog to allow the user to open a folder with pictures
+        """
+
+        """ default to Jade instead of popping up dialog
+        dlg = MyDialog()
+
+        if dlg.ShowModal() == wx.ID_OK:
+            self.newClassification = self.class_labels_rev[dlg.comboBox1.GetValue()]
+            self.line[self.csvFields[3]] = self.newClassification
+            print(self.newClassification)
+            self.setImageParameters(self.line)
+            self.loadImage(self.currentImage)
+        """
+
+        self.newClassification = self.class_labels_rev['buddy']
+        self.line[self.csvFields[3]] = self.newClassification
+        print(self.newClassification)
+        self.setImageParameters(self.line)
+        self.loadImage(self.currentImage)
+        self.nextPicture()
 
     def onDone(self, event):
         tempCsvFile = NamedTemporaryFile(mode='w', delete=False, newline='')
@@ -297,8 +319,8 @@ class ViewerPanel(wx.Panel):
     def train(self):
         img_lst = []
         for row in self.csvRows:
-            if row[self.csvFields[5]] != 'class_id' and int(row[self.csvFields[5]]) > 0:
-                img_lst.append((row[self.csvFields[0]],row[self.csvFields[1]],row[self.csvFields[2]],row[self.csvFields[3]],row[self.csvFields[4]],row[self.csvFields[5]]))
+            if row[self.csvFields[3]] != 'class_id' and int(row[self.csvFields[3]]) > 0:
+                img_lst.append((row[self.csvFields[0]],row[self.csvFields[1]],row[self.csvFields[2]],row[self.csvFields[3]],row[self.csvFields[4]],row[self.csvFields[5]],row[self.csvFields[6]],row[self.csvFields[7]]))
 
         random.shuffle(img_lst)
         img_lst=np.array(img_lst)

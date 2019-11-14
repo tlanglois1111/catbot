@@ -1,9 +1,9 @@
 item {
-    id: 91
+    id: 1
     name: 'buddy'
 }
 
 item {
-    id: 92
+    id: 2
     name: 'jade'
 }
