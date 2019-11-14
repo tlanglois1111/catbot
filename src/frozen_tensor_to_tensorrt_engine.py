@@ -3,7 +3,7 @@ from tensorflow.python.compiler.tensorrt import trt_convert as trt
 import tensorflow as tf
 import numpy as np
 import cv2
-
+import uff
 
 def save_image(data, fname="../dataset/img.png", swap_channel=True):
     if swap_channel:
@@ -90,7 +90,7 @@ def non_max_suppression(boxes, probs=None, nms_threshold=0.3):
         # delete all indexes from the index list that have overlap greater
         # than the provided overlap threshold
         idxs = np.delete(idxs, np.concatenate(([last],
-                                               np.where(overlap > nms_threshold)[0])))
+                                               np.where(overlap < nms_threshold)[0])))
     # return only the bounding boxes indexes
     return pick
 
@@ -98,13 +98,12 @@ def non_max_suppression(boxes, probs=None, nms_threshold=0.3):
 config_path = "../dataset/tf/ssd_mobilenet_v2_coco.config"
 #frozen_path = "../dataset/tf/trained-inference-graphs/output_inference_graph_v1.pb/frozen_inference_graph.pb"
 frozen_path = "../dataset/tf/catbot-detection-graphs/catbot_detection_graph_v1.pb/frozen_inference_graph.pb"
-checkpoint_path = "../dataset/tf/model.ckpt-8143"
-uff_model_path = "../dataset/tf/catbot-detection-graphs/catbot_detection_graph_v1.pb/frozen_inference_graph.uff"
-engine_path = "../dataset/tf/catbot-detection-graphs/catbot_detection_graph_v1.pb/catbot.engine"
+checkpoint_path = "../dataset/tf/model.ckpt-24082"
+uff_model_path = "../dataset/tf/catbot-detection-graphs/catbot_detection_graph_v1.pb/catbot.engine"
 output_names = ['detection_boxes', 'detection_classes', 'detection_scores', 'num_detections']
 input_names = ['image_tensor']
 
-use_frozen_graph = True
+use_frozen_graph = False
 
 if use_frozen_graph:
     with tf.Session() as sess:
@@ -114,14 +113,17 @@ if use_frozen_graph:
             frozen_graph.ParseFromString(f.read())
 else:
     frozen_graph, input_names, output_names = build_detection_graph(
-    config=config_path,
-    checkpoint=checkpoint_path,
-    score_threshold=0.3,
-    batch_size=1)
+        config=config_path,
+        checkpoint=checkpoint_path,
+        score_threshold=0.3,
+        batch_size=1)
 
 print("input names: {s}",input_names)
 print("output names: {s}",output_names)
 
+uff_model = uff.from_tensorflow(frozen_graph, output_names)
+with open(uff_model_path, "wb") as f:
+    f.write(uff_model)
 
 trt_graph = trt.create_inference_graph(
     input_graph_def=frozen_graph,
@@ -132,11 +134,7 @@ trt_graph = trt.create_inference_graph(
     minimum_segment_size=50
 )
 
-#uff_model = uff.from_tensorflow(trt_graph, output_names)
-#with open("test_"+engine_path, "wb") as f:
-#    f.write(uff_model.serialize())
-
-with open(engine_path, "wb") as f:
+with open(frozen_path, "wb") as f:
     f.write(trt_graph.SerializeToString())
 
 
@@ -152,7 +150,8 @@ tf_boxes = tf_sess.graph.get_tensor_by_name('detection_boxes:0')
 tf_classes = tf_sess.graph.get_tensor_by_name('detection_classes:0')
 tf_num_detections = tf_sess.graph.get_tensor_by_name('num_detections:0')
 
-IMAGE_PATH = "../dataset/cats/00a8bc84-fc29-11e9-b6f9-72b5f773b75d.jpg"
+#IMAGE_PATH = "../dataset/cats/77f44f40-fb63-11e9-9404-72b5f773b75d.jpg"
+IMAGE_PATH = "../dataset/cats/fbbcb7b6-fcc8-11e9-aacc-72b5f773b75d.jpg"
 image = cv2.imread(IMAGE_PATH)
 image = cv2.resize(image, (300, 300))
 
@@ -163,8 +162,6 @@ boxes = boxes[0]  # index by 0 to remove batch dimension
 scores = scores[0]
 classes = classes[0]
 num_detections = int(num_detections[0])
-
-from IPython.display import Image as DisplayImage
 
 # Boxes unit in pixels (image coordinates).
 boxes_pixels = []
@@ -192,7 +189,6 @@ for i in pick:
 
 # Display the labeled image.
 save_image(image[:, :, ::-1])
-DisplayImage(filename='../dataset/img.png')
 
 
 
