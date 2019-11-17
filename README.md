@@ -42,13 +42,6 @@ sudo ln -s /usr/local/cuda/targets/x86_64-linux/lib/libcudart.so /usr/local/cuda
 sudo ln -s /usr/local/cuda/targets/x86_64-linux/lib/libcusparse.so.10 /usr/local/cuda/lib64/libcusparse.so.10.0
 sudo ln -s /usr/lib/x86_64-linux-gnu/libcublas.so /usr/lib/x86_64-linux-gnu/libcublas.so.10.0
 
-sudo ln -s /usr/local/cuda/targets/x86_64-linux/lib/libcusolver.so.10 /usr/local/cuda/lib64/libcusolver.so.9.0
-sudo ln -s /usr/local/cuda/targets/x86_64-linux/lib/libcurand.so.10 /usr/local/cuda/lib64/libcurand.so.9.0
-sudo ln -s /usr/local/cuda/targets/x86_64-linux/lib/libcufft.so.10 /usr/local/cuda/lib64/libcufft.so.9.0
-sudo ln -s /usr/local/cuda/targets/x86_64-linux/lib/libcudart.so /usr/local/cuda/lib64/libcudart.so.9.0
-sudo ln -s /usr/local/cuda/targets/x86_64-linux/lib/libcusparse.so.10 /usr/local/cuda/lib64/libcusparse.so.9.0
-sudo ln -s /usr/lib/x86_64-linux-gnu/libcublas.so /usr/local/cuda/lib64/libcublas.so.9.0
-
 python3 train.py --logtostderr --train_dir=../dataset/tf --pipeline_config_path=../dataset/tf/ssd_mobilenet_v2_coco.config
 
 python3 export_inference_graph.py --input_type image_tensor --pipeline_config_path ../dataset/tf/ssd_mobilenet_v2_coco.config --trained_checkpoint_prefix ../dataset/tf/model.ckpt-7849 --output_directory ../dataset/tf/catbot-detection-graphs/catbot_detection_graph_v1.pb

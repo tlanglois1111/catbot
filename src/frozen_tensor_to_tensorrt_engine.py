@@ -1,5 +1,6 @@
 from tf_trt_models.detection import build_detection_graph
-from tensorflow.python.compiler.tensorrt import trt_convert as trt
+from tensorflow.python.compiler.tensorrt import trt_convert as convert
+import tensorrt as trt
 import tensorflow as tf
 import numpy as np
 import cv2
@@ -98,8 +99,9 @@ def non_max_suppression(boxes, probs=None, nms_threshold=0.3):
 config_path = "../dataset/tf/ssd_mobilenet_v2_coco.config"
 #frozen_path = "../dataset/tf/trained-inference-graphs/output_inference_graph_v1.pb/frozen_inference_graph.pb"
 frozen_path = "../dataset/tf/catbot-detection-graphs/catbot_detection_graph_v1.pb/frozen_inference_graph.pb"
-checkpoint_path = "../dataset/tf/model.ckpt-24082"
-uff_model_path = "../dataset/tf/catbot-detection-graphs/catbot_detection_graph_v1.pb/catbot.engine"
+checkpoint_path = "../dataset/tf/model.ckpt-28553"
+uff_model_path = "../dataset/tf/catbot-detection-graphs/catbot_detection_graph_v1.pb/catbot.uff"
+tensorrt_model_path = "../dataset/tf/catbot-detection-graphs/catbot_detection_graph_v1.pb/catbot.engine"
 output_names = ['detection_boxes', 'detection_classes', 'detection_scores', 'num_detections']
 input_names = ['image_tensor']
 
@@ -121,11 +123,43 @@ else:
 print("input names: {s}",input_names)
 print("output names: {s}",output_names)
 
-uff_model = uff.from_tensorflow(frozen_graph, output_names)
-with open(uff_model_path, "wb") as f:
-    f.write(uff_model)
+uff_model = uff.from_tensorflow(graphdef=frozen_graph,
+                                output_filename=uff_model_path,
+                                #preprocessor="remove_asserts.py",
+                                text=True,
+                                return_graph_info=False)
 
-trt_graph = trt.create_inference_graph(
+TRT_LOGGER = trt.Logger(trt.Logger.INFO)
+
+trt.init_libnvinfer_plugins(TRT_LOGGER, "")
+with trt.Builder(TRT_LOGGER) as builder:
+    builder.max_batch_size = 1
+    builder.max_workspace_size = 1 << 28
+    builder.fp16_mode = True
+    network = builder.create_network()
+    print("network created")
+    parser = trt.UffParser()
+    parser.register_input(input_names[0], [3, 300, 300])
+    #parser.register_input(input_names[0], (3, 100, 100), trt.UffInputOrder.NHWC)
+    for output_node in output_names:
+        parser.register_output(output_node)
+    print("parsing buffer...")
+    if parser.parse_buffer(uff_model, network):
+        print("starting building an engine...")
+        engine = builder.build_cuda_engine(network)
+        print("finished building an engine...")
+        if engine is not None:
+            with open(tensorrt_model_path, "wb") as f:
+                f.write(engine.serialize())
+    else:
+        print("no engine built :(")
+
+
+
+
+
+# test it
+trt_graph = convert.create_inference_graph(
     input_graph_def=frozen_graph,
     outputs=output_names,
     max_batch_size=1,
@@ -134,8 +168,9 @@ trt_graph = trt.create_inference_graph(
     minimum_segment_size=50
 )
 
-with open(frozen_path, "wb") as f:
-    f.write(trt_graph.SerializeToString())
+if not use_frozen_graph:
+    with open(frozen_path, "wb") as f:
+        f.write(trt_graph.SerializeToString())
 
 
 # Create session and load graph
