@@ -57,10 +57,10 @@ logging_config = {
 }
 
 # Constants
-DEFAULT_MODEL = './dataset/tf/frozen_inference_graph'
-DEFAULT_CONFIG = './dataset/tf/ssd_mobilenet_v2_coco.config'
-DEFAULT_LABELMAP = './dataset/tf/label_map.pbtxt'
-DEFAULT_CHECKPOINT = './dataset/tf/model-ckpt-28553'
+DEFAULT_MODEL = '../dataset/tf/frozen_inference_graph'
+DEFAULT_CONFIG = '../dataset/tf/ssd_mobilenet_v2_coco.config'
+DEFAULT_LABELMAP = '../dataset/tf/label_map.pbtxt'
+DEFAULT_CHECKPOINT = '../dataset/tf/model-ckpt-28553'
 v2_coco_labels_to_capture = [1, 2]
 
 def parse_args():
