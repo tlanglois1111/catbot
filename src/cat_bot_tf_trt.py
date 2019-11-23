@@ -151,9 +151,8 @@ def loop_and_detect(cam, tf_sess, conf_th, od_type, robot, logger):
 
             # compute all detected objects
             detections = []
-            i = 0
-            for bb, cf, cl in zip(box, conf, cls):
-                detections[i] = {'bbox': bb, 'confidence': cf, 'label': int(cl)}
+            for i, (bb, cf, cl) in enumerate(zip(box, conf, cls)):
+                detections.append({'bbox': bb, 'confidence': cf, 'label': int(cl)})
             if logger.isEnabledFor(logging.DEBUG) and (len(detections)) > 0:
                 logger.debug(detections)
 
