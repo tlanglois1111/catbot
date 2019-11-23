@@ -16,7 +16,6 @@ import tensorflow as tf
 
 from utils.camera import add_camera_args, Camera
 from utils.od_utils import read_label_map, build_trt_pb, load_trt_pb, detect
-from utils.visualization import BBoxVisualization
 from jetbot import Robot
 
 logging_config = {
@@ -46,7 +45,7 @@ logging_config = {
     'loggers': {
         '__main__': {
             'handlers': ['default_handler'],
-            'level': 'DEBUG',
+            'level': 'INFO',
             'propagate': False
         }
     },
