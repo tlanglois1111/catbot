@@ -29,15 +29,15 @@ logging_config = {
     'handlers': {
         'default_handler': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'level': 'DEBUG',
+            'level': 'WARN',
             'formatter': 'standard',
             'filename': '../logs/cat_bot.log',
-            'maxBytes': 10000,
+            'maxBytes': 100000,
             'backupCount': 3
         },
         'console': {
             'class': 'logging.StreamHandler',
-            'level': 'DEBUG',
+            'level': 'WARN',
             'formatter': 'standard',
             'stream': 'ext://sys.stdout'
         }
@@ -45,13 +45,13 @@ logging_config = {
     'loggers': {
         '__main__': {
             'handlers': ['default_handler'],
-            'level': 'INFO',
+            'level': 'DEBUG',
             'propagate': False
         }
     },
     'root': {
         'handlers': ['default_handler'],
-        'level': 'INFO',
+        'level': 'WARN',
         'propagate': False
     }
 }
@@ -145,7 +145,7 @@ def loop_and_detect(cam, tf_sess, conf_th, od_type, robot, logger):
 
             counter += 1
             if counter > 60:
-                logger.log("fps: %f", fps)
+                logger.info("fps: %f", fps)
                 counter = 0
 
             # compute all detected objects
