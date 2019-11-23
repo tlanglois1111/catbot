@@ -32,7 +32,7 @@ logging_config = {
             'class': 'logging.handlers.RotatingFileHandler',
             'level': 'DEBUG',
             'formatter': 'standard',
-            'filename': 'cat_bot.log',
+            'filename': '../logs/cat_bot.log',
             'maxBytes': 10000,
             'backupCount': 3
         },
@@ -82,7 +82,7 @@ def parse_args():
     parser.add_argument('--build', dest='do_build',
                         help='re-build TRT pb file (instead of using'
                         'the previously built version)',
-                        action='store_false')
+                        default=False, type=bool)
     parser.add_argument('--labelmap', dest='labelmap_file',
                         help='[{}]'.format(DEFAULT_LABELMAP),
                         default=DEFAULT_LABELMAP, type=str)
