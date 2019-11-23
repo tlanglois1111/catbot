@@ -45,7 +45,7 @@ logging_config = {
     'loggers': {
         '__main__': {
             'handlers': ['default_handler'],
-            'level': 'WARN',
+            'level': 'DEBUG',
             'propagate': False
         }
     },
