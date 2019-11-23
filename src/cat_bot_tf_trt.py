@@ -46,7 +46,7 @@ logging_config = {
     'loggers': {
         '__main__': {
             'handlers': ['default_handler'],
-            'level': 'INFO',
+            'level': 'DEBUG',
             'propagate': False
         }
     },
@@ -150,7 +150,10 @@ def loop_and_detect(cam, tf_sess, conf_th, od_type, robot, logger):
                 counter = 0
 
             # compute all detected objects
-            detections = {'bbox': box, 'confidence': conf, 'label': cls}
+            detections = []
+            i = 0
+            for bb, cf, cl in zip(box, conf, cls):
+                detections[i] = {'bbox': bb, 'confidence': cf, 'label': int(cl)}
             if logger.isEnabledFor(logging.DEBUG) and (len(detections)) > 0:
                 logger.debug(detections)
 
