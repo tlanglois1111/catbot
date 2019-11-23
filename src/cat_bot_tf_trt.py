@@ -150,10 +150,12 @@ def loop_and_detect(cam, tf_sess, conf_th, od_type, robot, logger):
                 counter = 0
 
             # compute all detected objects
-            detections = {'bbox': box, 'confidence':conf, 'label':cls}
+            detections = {'bbox': box, 'confidence': conf, 'label': cls}
+            if logger.isEnabledFor(logging.DEBUG) and (len(detections)) > 0:
+                logger.debug(detections)
 
             # select detections that match selected class label
-            matching_detections = [d for d in detections[0] if d['label'] in v2_coco_labels_to_capture and d['confidence'] > 0.50]
+            matching_detections = [d for d in detections if d['label'] in v2_coco_labels_to_capture and d['confidence'] > 0.50]
 
             tf_image_list = []
             if len(matching_detections) > 0:
@@ -173,8 +175,6 @@ def loop_and_detect(cam, tf_sess, conf_th, od_type, robot, logger):
                         robot.left(abs(move_speed))
             else:
                 robot.stop()
-                if logger.isEnabledFor(logging.DEBUG) and (len(detections[0])) > 0:
-                    logger.debug(detections[0])
 
 
 def main():
