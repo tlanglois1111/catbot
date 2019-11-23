@@ -51,7 +51,7 @@ logging_config = {
     },
     'root': {
         'handlers': ['default_handler'],
-        'level': 'WARN',
+        'level': 'DEBUG',
         'propagate': False
     }
 }
