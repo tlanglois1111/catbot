@@ -99,8 +99,8 @@ def parse_args():
 def detection_center(detection):
     # Computes the center x, y coordinates of the object
     bbox = detection['bbox']
-    center_x = (bbox[0] + bbox[2]) / 2.0 - 0.5
-    center_y = (bbox[1] + bbox[3]) / 2.0 - 0.5
+    center_x = (bbox[0] + bbox[2]) / 600 / 2.0 - 0.5
+    center_y = (bbox[1] + bbox[3]) / 600 / 2.0 - 0.5
     return (center_x, center_y)
 
 
