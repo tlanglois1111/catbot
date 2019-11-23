@@ -29,7 +29,7 @@ logging_config = {
     'handlers': {
         'default_handler': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'level': 'WARN',
+            'level': 'DEBUG',
             'formatter': 'standard',
             'filename': '../logs/cat_bot.log',
             'maxBytes': 100000,
@@ -45,7 +45,7 @@ logging_config = {
     'loggers': {
         '__main__': {
             'handlers': ['default_handler'],
-            'level': 'DEBUG',
+            'level': 'WARN',
             'propagate': False
         }
     },
