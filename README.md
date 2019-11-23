@@ -45,3 +45,10 @@ sudo ln -s /usr/lib/x86_64-linux-gnu/libcublas.so /usr/lib/x86_64-linux-gnu/libc
 python3 train.py --logtostderr --train_dir=../dataset/tf --pipeline_config_path=../dataset/tf/ssd_mobilenet_v2_coco.config
 
 python3 export_inference_graph.py --input_type image_tensor --pipeline_config_path ../dataset/tf/ssd_mobilenet_v2_coco.config --trained_checkpoint_prefix ../dataset/tf/model.ckpt-7849 --output_directory ../dataset/tf/catbot-detection-graphs/catbot_detection_graph_v1.pb
+
+
+sudo i2cdetect -y -r 1
+
+sudo nvpmodel -m 1
+
+python3 cat_bot_tf_trt.py > ~/catbot/logs/stdout.txt 2>&1 &
