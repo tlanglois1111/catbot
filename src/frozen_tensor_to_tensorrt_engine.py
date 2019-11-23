@@ -97,11 +97,11 @@ def non_max_suppression(boxes, probs=None, nms_threshold=0.3):
 
 
 config_path = "../dataset/tf/ssd_mobilenet_v2_coco.config"
-#frozen_path = "../dataset/tf/trained-inference-graphs/output_inference_graph_v1.pb/frozen_inference_graph.pb"
-frozen_path = "../dataset/tf/catbot-detection-graphs/catbot_detection_graph_v1.pb/frozen_inference_graph.pb"
-checkpoint_path = "../dataset/tf/model.ckpt-28553"
-uff_model_path = "../dataset/tf/catbot-detection-graphs/catbot_detection_graph_v1.pb/catbot.uff"
-tensorrt_model_path = "../dataset/tf/catbot-detection-graphs/catbot_detection_graph_v1.pb/catbot.engine"
+#frozen_path = "../dataset/tf/trained-inference-graphs/frozen_inference_graph.pb"
+frozen_path = "../dataset/tf/catbot-detection-graphs/frozen_inference_graph.pb"
+checkpoint_path = "../dataset/tf/model.ckpt-91943"
+uff_model_path = "../dataset/tf/catbot-detection-graphs/catbot.uff"
+tensorrt_model_path = "../dataset/tf/catbot-detection-graphs/catbot.engine"
 output_names = ['detection_boxes', 'detection_classes', 'detection_scores', 'num_detections']
 input_names = ['image_tensor']
 
