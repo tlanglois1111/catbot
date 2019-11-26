@@ -68,7 +68,7 @@ logger = logging.getLogger(__name__)
 logging.getLogger('tensorflow').propagate = False
 
 # Constants
-v2_coco_labels_to_capture = [16, 17, 18]
+v2_coco_labels_to_capture = [1, 16, 17, 18]
 INPUT_WH = (300, 300)
 OUTPUT_LAYOUT = 7
 SUPPORTED_MODELS = [
