@@ -188,11 +188,11 @@ class TrtSSD(object):
         return postprocess(img, output, conf_th)
 
 
-def detection_center(detection):
+def detection_center(detection, width, height):
     # Computes the center x, y coordinates of the object
     bbox = detection['bbox']
-    center_x = (bbox[0] + bbox[2]) / 600 / 2.0 - 0.5
-    center_y = (bbox[1] + bbox[3]) / 600 / 2.0 - 0.5
+    center_x = (bbox[0] + bbox[2]) / width / 2.0 - 0.5
+    center_y = (bbox[1] + bbox[3]) / height / 2.0 - 0.5
     return (center_x, center_y)
 
 
@@ -201,14 +201,14 @@ def norm(vec):
     return np.sqrt(vec[0] ** 2 + vec[1] ** 2)
 
 
-def closest_detection(detections):
+def closest_detection(detections, width, height):
     # Finds the detection closest to the image center
     closest_detection = None
     for det in detections:
-        center = detection_center(det)
+        center = detection_center(det, width, height)
         if closest_detection is None:
             closest_detection = det
-        elif norm(detection_center(det)) < norm(detection_center(closest_detection)):
+        elif norm(detection_center(det, width, height)) < norm(detection_center(closest_detection, width, height)):
             closest_detection = det
     return closest_detection
 
@@ -256,9 +256,9 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, logger, model):
                 logger.info(matching_detections)
 
             # get detection closest to center of field of view and center bot
-            det = closest_detection(matching_detections)
+            det = closest_detection(matching_detections, width=cam.img_width, height=cam.img_height)
             if det is not None:
-                center = detection_center(det)
+                center = detection_center(det,cam.img_width,cam.img_height)
                 logger.debug("center: %s, object: %s" % center, cls_dict[int(det['label'])])
 
                 move_speed = 2.0 * center[0]
