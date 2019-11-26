@@ -259,7 +259,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, logger, model):
             det = closest_detection(matching_detections, width=cam.img_width, height=cam.img_height)
             if det is not None:
                 center = detection_center(det, cam.img_width, cam.img_height)
-                logger.info("center: %s, on object: %s" % center, cls_dict[det['label']])
+                logger.info("center: %s, on object: %s", center, cls_dict[det['label']])
 
                 move_speed = 2.0 * center[0]
                 if abs(move_speed) > 0.3:
