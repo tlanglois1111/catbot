@@ -253,13 +253,13 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, logger, model):
             matching_detections = [d for d in detections if d['label'] in v2_coco_labels_to_capture and d['confidence'] > 0.50]
 
             if len(matching_detections) > 0:
-                logger.info(matching_detections)
+                logger.debug(matching_detections)
 
             # get detection closest to center of field of view and center bot
             det = closest_detection(matching_detections, width=cam.img_width, height=cam.img_height)
             if det is not None:
-                center = detection_center(det,cam.img_width,cam.img_height)
-                logger.debug("center: %s, object: %s" % center, cls_dict[int(det['label'])])
+                center = detection_center(det, cam.img_width, cam.img_height)
+                logger.info("center: %s, on object: %s" % center, cls_dict[det['label']])
 
                 move_speed = 2.0 * center[0]
                 if abs(move_speed) > 0.3:
