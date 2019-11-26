@@ -4,20 +4,22 @@ This is a Camera TensorFlow/TensorRT Object Detection code for
 Jetson Nano.
 """
 
-
 import sys
 import time
 import ctypes
-import cv2
-import logging
-import logging.config
 import argparse
 
+import logging
+import logging.config
+
 import numpy as np
-import tensorrt as trt
+import cv2
+import pycuda.autoinit  # This is needed for initializing CUDA driver
 import pycuda.driver as cuda
+import tensorrt as trt
 
 from utils.camera import add_camera_args, Camera
+
 from jetbot import Robot
 
 logging_config = {
