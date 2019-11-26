@@ -18,6 +18,7 @@ import pycuda.autoinit  # This is needed for initializing CUDA driver
 import pycuda.driver as cuda
 import tensorrt as trt
 
+from utils.ssd_classes import get_cls_dict
 from utils.camera import add_camera_args, Camera
 
 from jetbot import Robot
@@ -49,7 +50,7 @@ logging_config = {
     'loggers': {
         '__main__': {
             'handlers': ['default_handler'],
-            'level': 'DEBUG',
+            'level': 'INFO',
             'propagate': False
         }
     },
@@ -212,7 +213,7 @@ def closest_detection(detections):
     return closest_detection
 
 
-def loop_and_detect(cam, trt_ssd, conf_th, robot, logger):
+def loop_and_detect(cam, trt_ssd, conf_th, robot, logger, model):
     """Loop, grab images from camera, and do object detection.
 
     # Arguments
@@ -221,6 +222,8 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, logger):
       conf_th: confidence/score threshold for object detection.
       vis: for visualization.
     """
+
+    cls_dict = get_cls_dict(model.split('_')[-1])
     fps = 0.0
     counter = 58
     tic = time.time()
@@ -256,7 +259,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, logger):
             det = closest_detection(matching_detections)
             if det is not None:
                 center = detection_center(det)
-                logger.debug("center: %s", center)
+                logger.debug("center: %s, object: %s" % center, cls_dict[int(det['label'])])
 
                 move_speed = 2.0 * center[0]
                 if abs(move_speed) > 0.3:
@@ -286,7 +289,7 @@ def main():
 
     # grab image and do object detection (until stopped by user)
     logger.info('starting to loop and detect')
-    loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, logger=logger)
+    loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, logger=logger, model=args.model)
 
     logger.info('cleaning up')
     robot.stop()
