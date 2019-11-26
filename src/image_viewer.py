@@ -33,7 +33,7 @@ class ViewerPanel(wx.Panel):
 
         self.stratified = True
         self.csvRows = []
-        self.percentVal = 0.25
+        self.percentVal = 0.10
 
         # 20180706_215_cats_807,138,231,94,194,1
         self.frame = ''

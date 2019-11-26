@@ -88,11 +88,11 @@ class BBoxVisualization():
         self.cls_dict = cls_dict
         self.colors = gen_colors(len(cls_dict))
 
-    def draw_bboxes(self, img, box, conf, cls):
+    def draw_bboxes(self, img, boxes, confs, clss):
         """Draw detected bounding boxes on the original image."""
-        for bb, cf, cl in zip(box, conf, cls):
+        for bb, cf, cl in zip(boxes, confs, clss):
             cl = int(cl)
-            y_min, x_min, y_max, x_max = bb[0], bb[1], bb[2], bb[3]
+            x_min, y_min, x_max, y_max = bb[0], bb[1], bb[2], bb[3]
             color = self.colors[cl]
             cv2.rectangle(img, (x_min, y_min), (x_max, y_max), color, 2)
             txt_loc = (max(x_min+2, 0), max(y_min+2, 0))

@@ -7,12 +7,15 @@ Jetson Nano.
 
 import sys
 import time
+import ctypes
+import cv2
 import logging
 import logging.config
 import argparse
 
 import numpy as np
-import tensorflow as tf
+import tensorrt as trt
+import pycuda.driver as cuda
 
 from utils.camera import add_camera_args, Camera
 from utils.od_utils import read_label_map, build_trt_pb, load_trt_pb, detect
@@ -61,7 +64,16 @@ DEFAULT_MODEL = '../dataset/tf/frozen_inference_graph'
 DEFAULT_CONFIG = '../dataset/tf/ssd_mobilenet_v2_coco.config'
 DEFAULT_LABELMAP = '../dataset/tf/label_map.pbtxt'
 DEFAULT_CHECKPOINT = '../dataset/tf/model-ckpt-28553'
-v2_coco_labels_to_capture = [1, 2]
+v2_coco_labels_to_capture = [16, 17, 18]
+INPUT_WH = (300, 300)
+OUTPUT_LAYOUT = 7
+SUPPORTED_MODELS = [
+    'ssd_mobilenet_v1_coco',
+    'ssd_mobilenet_v1_egohands',
+    'ssd_mobilenet_v2_coco',
+    'ssd_mobilenet_v2_egohands',
+]
+
 
 def parse_args():
     """Parse input arguments."""
@@ -96,6 +108,104 @@ def parse_args():
     return args
 
 
+def preprocess(img):
+    """Preprocess an image before SSD inferencing."""
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = cv2.resize(img, INPUT_WH)
+    img = img.transpose((2, 0, 1)).astype(np.float32)
+    img = (2.0/255.0) * img - 1.0
+    return img
+
+
+def postprocess(img, output, conf_th):
+    """Postprocess TRT SSD output."""
+    img_h, img_w, _ = img.shape
+    boxes, confs, clss = [], [], []
+    for prefix in range(0, len(output), OUTPUT_LAYOUT):
+        #index = int(output[prefix+0])
+        conf = float(output[prefix+2])
+        if conf < conf_th:
+            continue
+        x1 = int(output[prefix+3] * img_w)
+        y1 = int(output[prefix+4] * img_h)
+        x2 = int(output[prefix+5] * img_w)
+        y2 = int(output[prefix+6] * img_h)
+        cls = int(output[prefix+1])
+        boxes.append((x1, y1, x2, y2))
+        confs.append(conf)
+        clss.append(cls)
+    return boxes, confs, clss
+
+
+class TrtSSD(object):
+    """TrtSSD class encapsulates things needed to run TRT SSD."""
+
+    def _load_plugins(self):
+        ctypes.CDLL("ssd/libflattenconcat.so")
+        trt.init_libnvinfer_plugins(self.trt_logger, '')
+
+    def _load_engine(self):
+        TRTbin = 'ssd/TRT_%s.bin' % self.model
+        with open(TRTbin, 'rb') as f, trt.Runtime(self.trt_logger) as runtime:
+            return runtime.deserialize_cuda_engine(f.read())
+
+    def _create_context(self):
+        for binding in self.engine:
+            size = trt.volume(self.engine.get_binding_shape(binding)) * \
+                   self.engine.max_batch_size
+            host_mem = cuda.pagelocked_empty(size, np.float32)
+            cuda_mem = cuda.mem_alloc(host_mem.nbytes)
+            self.bindings.append(int(cuda_mem))
+            if self.engine.binding_is_input(binding):
+                self.host_inputs.append(host_mem)
+                self.cuda_inputs.append(cuda_mem)
+            else:
+                self.host_outputs.append(host_mem)
+                self.cuda_outputs.append(cuda_mem)
+        return self.engine.create_execution_context()
+
+    def __init__(self, model):
+        """Initialize TensorRT plugins, engine and conetxt."""
+        self.model = model
+        self.trt_logger = trt.Logger(trt.Logger.INFO)
+        self._load_plugins()
+        self.engine = self._load_engine()
+
+        self.host_inputs = []
+        self.cuda_inputs = []
+        self.host_outputs = []
+        self.cuda_outputs = []
+        self.bindings = []
+        self.stream = cuda.Stream()
+        self.context = self._create_context()
+
+    def __del__(self):
+        """Free CUDA memories."""
+        del self.stream
+        del self.cuda_outputs
+        del self.cuda_inputs
+
+    def detect(self, img, conf_th=0.3):
+        """Detect objects in the input image."""
+        img_resized = preprocess(img)
+        np.copyto(self.host_inputs[0], img_resized.ravel())
+
+        cuda.memcpy_htod_async(
+            self.cuda_inputs[0], self.host_inputs[0], self.stream)
+        self.context.execute_async(
+            batch_size=1,
+            bindings=self.bindings,
+            stream_handle=self.stream.handle)
+        cuda.memcpy_dtoh_async(
+            self.host_outputs[1], self.cuda_outputs[1], self.stream)
+        cuda.memcpy_dtoh_async(
+            self.host_outputs[0], self.cuda_outputs[0], self.stream)
+        self.stream.synchronize()
+
+        output = self.host_outputs[0]
+        return postprocess(img, output, conf_th)
+
+
 def detection_center(detection):
     # Computes the center x, y coordinates of the object
     bbox = detection['bbox']
@@ -121,7 +231,7 @@ def closest_detection(detections):
     return closest_detection
 
 
-def loop_and_detect(cam, tf_sess, conf_th, od_type, robot, logger):
+def loop_and_detect(cam, trt_ssd, conf_th, robot, logger):
     """Loop, grab images from camera, and do object detection.
 
     # Arguments
@@ -131,12 +241,12 @@ def loop_and_detect(cam, tf_sess, conf_th, od_type, robot, logger):
       vis: for visualization.
     """
     fps = 0.0
-    counter=58
+    counter = 58
     tic = time.time()
     while True:
         img = cam.read()
         if img is not None:
-            box, conf, cls = detect(img, tf_sess, conf_th, od_type=od_type)
+            boxes, confs, clss = trt_ssd.detect(img, conf_th)
             toc = time.time()
             curr_fps = 1.0 / (toc - tic)
             # calculate an exponentially decaying average of fps number
@@ -150,7 +260,7 @@ def loop_and_detect(cam, tf_sess, conf_th, od_type, robot, logger):
 
             # compute all detected objects
             detections = []
-            for i, (bb, cf, cl) in enumerate(zip(box, conf, cls)):
+            for i, (bb, cf, cl) in enumerate(zip(boxes, confs, clss)):
                 detections.append({'bbox': bb, 'confidence': cf, 'label': int(cl)})
             if logger.isEnabledFor(logging.DEBUG) and (len(detections)) > 0:
                 logger.debug(detections)
@@ -158,7 +268,6 @@ def loop_and_detect(cam, tf_sess, conf_th, od_type, robot, logger):
             # select detections that match selected class label
             matching_detections = [d for d in detections if d['label'] in v2_coco_labels_to_capture and d['confidence'] > 0.50]
 
-            tf_image_list = []
             if len(matching_detections) > 0:
                 logger.info(matching_detections)
 
@@ -186,37 +295,14 @@ def main():
     logging.getLogger('tensorflow').propagate = False
 
     args = parse_args()
-    logger.info('called with args: %s' % args)
-
-    # build the class (index/name) dictionary from labelmap file
-    #logger.info('reading label map')
-    #cls_dict = read_label_map(args.labelmap_file)
-
-    pb_path = '{}.pb'.format(args.model)
-    if args.do_build:
-        logger.info('building TRT graph and saving to pb: %s' % pb_path)
-        build_trt_pb(args.config, pb_path, args.checkpoint)
-
-    logger.info('opening camera device/file')
     cam = Camera(args)
     cam.open()
     if not cam.is_opened:
         sys.exit('Failed to open camera!')
 
-    logger.info('loading TRT graph from pb: %s' % pb_path)
-    trt_graph = load_trt_pb(pb_path)
+    trt_ssd = TrtSSD(args.model)
 
-    logger.info('starting up TensorFlow session')
-    tf_config = tf.ConfigProto()
-    tf_config.gpu_options.allow_growth = True
-    tf_sess = tf.Session(config=tf_config, graph=trt_graph)
-
-    logger.info('warming up the TRT graph with a dummy image')
-    od_type = 'faster_rcnn' if 'faster_rcnn' in args.model else 'ssd'
-    dummy_img = np.zeros((600, 600, 3), dtype=np.uint8)
-    _, _, _ = detect(dummy_img, tf_sess, conf_th=.3, od_type=od_type)
-
-    cam.start()  # ask the camera to start grabbing images
+    cam.start()
 
     # initialize bot
     logger.info('initialize robot')
@@ -224,12 +310,11 @@ def main():
 
     # grab image and do object detection (until stopped by user)
     logger.info('starting to loop and detect')
-    loop_and_detect(cam, tf_sess, args.conf_th, od_type=od_type, robot=robot, logger=logger)
+    loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=args.conf_th, robot=robot, logger=logger)
 
     logger.info('cleaning up')
     robot.stop()
-    cam.stop()  # terminate the sub-thread in camera
-    tf_sess.close()
+    cam.stop()
     cam.release()
 
 
