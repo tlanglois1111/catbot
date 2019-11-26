@@ -18,7 +18,6 @@ import tensorrt as trt
 import pycuda.driver as cuda
 
 from utils.camera import add_camera_args, Camera
-from utils.od_utils import read_label_map, build_trt_pb, load_trt_pb, detect
 from jetbot import Robot
 
 logging_config = {
@@ -59,11 +58,13 @@ logging_config = {
     }
 }
 
+logging.config.dictConfig(logging_config)
+logger = logging.getLogger(__name__)
+# Ask tensorflow logger not to propagate logs to parent (which causes
+# duplicated logging)
+logging.getLogger('tensorflow').propagate = False
+
 # Constants
-DEFAULT_MODEL = '../dataset/tf/frozen_inference_graph'
-DEFAULT_CONFIG = '../dataset/tf/ssd_mobilenet_v2_coco.config'
-DEFAULT_LABELMAP = '../dataset/tf/label_map.pbtxt'
-DEFAULT_CHECKPOINT = '../dataset/tf/model-ckpt-28553'
 v2_coco_labels_to_capture = [16, 17, 18]
 INPUT_WH = (300, 300)
 OUTPUT_LAYOUT = 7
@@ -80,7 +81,7 @@ def parse_args():
     desc = 'Follow cats with SSD model on Jetson Nano'
     parser = argparse.ArgumentParser(description=desc)
     parser = add_camera_args(parser)
-    parser.add_argument('--model', type=str, default='ssd_mobilenet_v1_coco',choices=SUPPORTED_MODELS)
+    parser.add_argument('--model', type=str, default='ssd_mobilenet_v1_coco', choices=SUPPORTED_MODELS)
     args = parser.parse_args()
     return args
 
@@ -122,7 +123,8 @@ class TrtSSD(object):
         trt.init_libnvinfer_plugins(self.trt_logger, '')
 
     def _load_engine(self):
-        TRTbin = 'ssd/TRT_%s.bin' % self.model
+        TRTbin = '../dataset/ssd/TRT_%s.bin' % self.model
+        logger.info("loading model %s" % TRTbin)
         with open(TRTbin, 'rb') as f, trt.Runtime(self.trt_logger) as runtime:
             return runtime.deserialize_cuda_engine(f.read())
 
@@ -265,11 +267,6 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, logger):
 
 
 def main():
-    logging.config.dictConfig(logging_config)
-    logger = logging.getLogger(__name__)
-    # Ask tensorflow logger not to propagate logs to parent (which causes
-    # duplicated logging)
-    logging.getLogger('tensorflow').propagate = False
 
     args = parse_args()
     cam = Camera(args)
