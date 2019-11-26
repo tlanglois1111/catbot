@@ -77,33 +77,10 @@ SUPPORTED_MODELS = [
 
 def parse_args():
     """Parse input arguments."""
-    desc = ('This script captures and displays live camera video, '
-            'and does real-time object detection with TF-TRT model '
-            'on Jetson TX2/TX1/Nano')
+    desc = 'Follow cats with SSD model on Jetson Nano'
     parser = argparse.ArgumentParser(description=desc)
     parser = add_camera_args(parser)
-    parser.add_argument('--model', dest='model',
-                        help='tf-trt object detection model '
-                             '[{}]'.format(DEFAULT_MODEL),
-                        default=DEFAULT_MODEL, type=str)
-    parser.add_argument('--config', dest='config',
-                        help='model config '
-                             '[{}]'.format(DEFAULT_MODEL),
-                        default=DEFAULT_CONFIG, type=str)
-    parser.add_argument('--build', dest='do_build',
-                        help='re-build TRT pb file (instead of using'
-                        'the previously built version)',
-                        default=False, type=bool)
-    parser.add_argument('--labelmap', dest='labelmap_file',
-                        help='[{}]'.format(DEFAULT_LABELMAP),
-                        default=DEFAULT_LABELMAP, type=str)
-    parser.add_argument('--confidence', dest='conf_th',
-                        help='confidence threshold [0.3]',
-                        default=0.3, type=float)
-    parser.add_argument('--checkpoint', dest='checkpoint',
-                        help='checkpoint path' 
-                             '[{}]'.format(DEFAULT_CHECKPOINT),
-                        default=DEFAULT_CHECKPOINT, type=str)
+    parser.add_argument('--model', type=str, default='ssd_mobilenet_v1_coco',choices=SUPPORTED_MODELS)
     args = parser.parse_args()
     return args
 
