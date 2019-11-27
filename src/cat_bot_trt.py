@@ -8,6 +8,8 @@ import sys
 import time
 import ctypes
 import argparse
+import os
+import math
 
 import logging
 import logging.config
@@ -17,6 +19,7 @@ import cv2
 import pycuda.autoinit  # This is needed for initializing CUDA driver
 import pycuda.driver as cuda
 import tensorrt as trt
+import RTIMU
 
 from utils.ssd_classes import get_cls_dict
 from utils.camera import add_camera_args, Camera
@@ -118,6 +121,53 @@ def postprocess(img, output, conf_th):
     return boxes, confs, clss
 
 
+class RTIMU(object):
+    """RTIMU encapsulates use of gyro device"""
+
+    def _load_rtimu_lib(self):
+
+        logger.info("Using settings file %s", self.SETTINGS_FILE + ".ini")
+        if not os.path.exists(self.SETTINGS_FILE + ".ini"):
+            logger.error("Settings file does not exist, will be created")
+
+        s = RTIMU.Settings(self.SETTINGS_FILE)
+        self.imu = RTIMU.RTIMU(s)
+
+        logger.info("IMU Name: %s", self.imu.IMUName())
+
+        if not self.imu.IMUInit():
+            logger.error("IMU Init Failed")
+            self.imu = None
+        else:
+            logger.info("IMU Init Succeeded")
+            self.imu.setSlerpPower(0.02)
+            self.imu.setGyroEnable(True)
+            self.imu.setAccelEnable(True)
+            self.imu.setCompassEnable(True)
+
+            self.poll_interval = self.imu.IMUGetPollInterval()
+            logger.info("Recommended Poll Interval: %f", self.poll_interval)
+
+    def __init__(self, settings_path="../dataset/RTIMULib"):
+        self.SETTINGS = settings_path
+        self._load_rtimu_lib()
+
+    def get_headings(self):
+        if self.imu and self.imu.IMURead():
+            # x, y, z = imu.getFusionData()
+            # print("%f %f %f" % (x,y,z))
+            data = self.imu.getIMUData()
+            fusion_pose = data["fusionPose"]
+            logger.info(fusion_pose)
+            pitch =  math.degrees(fusion_pose[1])
+            roll = math.degrees(fusion_pose[0])
+            yaw = math.degrees(fusion_pose[2])
+
+            logger.info("pith: %f roll: %f yaw: %f", pitch, roll, yaw)
+
+            return pitch, roll, yaw
+
+
 class TrtSSD(object):
     """TrtSSD class encapsulates things needed to run TRT SSD."""
 
@@ -213,7 +263,7 @@ def closest_detection(detections, width, height):
     return closest_detection
 
 
-def loop_and_detect(cam, trt_ssd, conf_th, robot, logger, model):
+def loop_and_detect(cam, trt_ssd, conf_th, robot, model, imu):
     """Loop, grab images from camera, and do object detection.
 
     # Arguments
@@ -270,6 +320,8 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, logger, model):
             else:
                 robot.stop()
 
+            pitch, roll, yaw = imu.get_headings()
+
 
 def main():
 
@@ -279,6 +331,7 @@ def main():
     if not cam.is_opened:
         sys.exit('Failed to open camera!')
 
+    imu = RTIMU()
     trt_ssd = TrtSSD(args.model)
 
     cam.start()
@@ -289,7 +342,7 @@ def main():
 
     # grab image and do object detection (until stopped by user)
     logger.info('starting to loop and detect')
-    loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, logger=logger, model=args.model)
+    loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, model=args.model, imu=imu)
 
     logger.info('cleaning up')
     robot.stop()
