@@ -122,58 +122,29 @@ def postprocess(img, output, conf_th):
     return boxes, confs, clss
 
 
-class Gyro(threading.Thread):
-    """RTIMU encapsulates use of gyro device"""
+def load_rtimu_lib():
+    settings_path="../dataset/RTIMULib"
+    logger.info("Using settings file %s", settings_path + ".ini")
+    if not os.path.exists(settings_path + ".ini"):
+        logger.error("Settings file does not exist, will be created")
 
-    def _load_rtimu_lib(self):
+    s = RTIMU.Settings(settings_path)
+    imu = RTIMU.RTIMU(s)
 
-        logger.info("Using settings file %s", self.SETTINGS_FILE + ".ini")
-        if not os.path.exists(self.SETTINGS_FILE + ".ini"):
-            logger.error("Settings file does not exist, will be created")
+    logger.info("IMU Name: %s", imu.IMUName())
 
-        s = RTIMU.Settings(self.SETTINGS_FILE)
-        self.imu = RTIMU.RTIMU(s)
+    if not imu.IMUInit():
+        logger.error("IMU Init Failed")
+    else:
+        logger.info("IMU Init Succeeded")
+        imu.setSlerpPower(0.02)
+        imu.setGyroEnable(True)
+        imu.setAccelEnable(True)
+        imu.setCompassEnable(True)
 
-        logger.info("IMU Name: %s", self.imu.IMUName())
-
-        if not self.imu.IMUInit():
-            logger.error("IMU Init Failed")
-            self.good = False
-        else:
-            logger.info("IMU Init Succeeded")
-            self.good = True
-            self.imu.setSlerpPower(0.02)
-            self.imu.setGyroEnable(True)
-            self.imu.setAccelEnable(True)
-            self.imu.setCompassEnable(True)
-
-            self.poll_interval = self.imu.IMUGetPollInterval()
-            logger.info("Recommended Poll Interval: %f", self.poll_interval)
-
-    def __init__(self, settings_path="../dataset/RTIMULib"):
-        threading.Thread.__init__(self)
-        self.SETTINGS_FILE = settings_path
-        self._load_rtimu_lib()
-        self.keep_running = True
-        self.data = []
-
-    def run(self):
-        logger.info("running gyro")
-        while self.keep_running:
-            if self.good and self.imu.IMURead():
-                self.data = self.imu.getIMUData()
-                logger.info(self.data)
-            time.sleep(self.poll_interval*1.0/1000.0)
-
-    def get_headings(self):
-        logger.info("about to get gyro reading")
-        if len(self.data) > 0:
-            return self.data["accel"]
-        else:
-            return self.data
-
-    def stop(self):
-        self.keep_running = False
+        poll_interval = imu.IMUGetPollInterval()
+        logger.info("Recommended Poll Interval: %f", poll_interval)
+    return imu
 
 
 class TrtSSD(object):
@@ -271,7 +242,7 @@ def closest_detection(detections, width, height):
     return closest_detection
 
 
-def loop_and_detect(cam, trt_ssd, conf_th, robot, model, gyro):
+def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     """Loop, grab images from camera, and do object detection.
 
     # Arguments
@@ -281,6 +252,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model, gyro):
       vis: for visualization.
     """
 
+    imu = load_rtimu_lib()
     cls_dict = get_cls_dict(model.split('_')[-1])
     fps = 0.0
     counter = 58
@@ -298,7 +270,8 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model, gyro):
             counter += 1
             if counter > fps:
                 logger.info("fps: %f", fps)
-                logger.info(gyro.get_headings())
+                data = imu.getIMUData()
+                logger.info(data)
                 counter = 0
 
             # compute all detected objects
@@ -330,8 +303,6 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model, gyro):
                 robot.stop()
 
 
-
-
 def main():
     args = parse_args()
     cam = Camera(args)
@@ -347,16 +318,10 @@ def main():
     logger.info('initialize robot')
     robot = Robot()
 
-    # grab image and do object detection (until stopped by user)
-    logger.info("start gyro")
-    gyro = Gyro()
-    gyro.start()
-
     logger.info('starting to loop and detect')
-    loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, model=args.model, gyro=gyro)
+    loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, model=args.model)
 
     logger.info('cleaning up')
-    gyro.stop()
     robot.stop()
     cam.stop()
     cam.release()
