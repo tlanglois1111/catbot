@@ -117,6 +117,7 @@ def main():
 
     while True:
         logger.info(accel.get_headings())
+        time.sleep(2000)
 
 
 if __name__ == '__main__':
