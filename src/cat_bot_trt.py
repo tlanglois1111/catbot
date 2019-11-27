@@ -81,6 +81,28 @@ SUPPORTED_MODELS = [
     'ssd_mobilenet_v2_egohands',
 ]
 
+SETTINGS_FILE="../dataset/RTIMULib"
+logger.info("Using settings file %s", SETTINGS_FILE + ".ini")
+if not os.path.exists(SETTINGS_FILE + ".ini"):
+    logger.error("Settings file does not exist, will be created")
+
+s = RTIMU.Settings(SETTINGS_FILE)
+imu = RTIMU.RTIMU(s)
+
+logger.info("IMU Name: %s", imu.IMUName())
+
+if not imu.IMUInit():
+    logger.error("IMU Init Failed")
+else:
+    logger.info("IMU Init Succeeded")
+    imu.setSlerpPower(0.02)
+    imu.setGyroEnable(True)
+    imu.setAccelEnable(True)
+    imu.setCompassEnable(True)
+
+    poll_interval = imu.IMUGetPollInterval()
+    logger.info("Recommended Poll Interval: %f", poll_interval)
+
 
 def parse_args():
     """Parse input arguments."""
@@ -216,7 +238,7 @@ def closest_detection(detections, width, height):
     return closest_detection
 
 
-def loop_and_detect(cam, trt_ssd, conf_th, robot, model, imu):
+def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     """Loop, grab images from camera, and do object detection.
 
     # Arguments
@@ -230,52 +252,51 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model, imu):
     fps = 0.0
     counter = 58
     tic = time.time()
-    with imu:
-        while True:
-            img = cam.read()
-            if img is not None:
-                boxes, confs, clss = trt_ssd.detect(img, conf_th)
-                toc = time.time()
-                curr_fps = 1.0 / (toc - tic)
-                # calculate an exponentially decaying average of fps number
-                fps = curr_fps if fps == 0.0 else (fps*0.9 + curr_fps*0.1)
-                tic = toc
+    while True:
+        img = cam.read()
+        if img is not None:
+            boxes, confs, clss = trt_ssd.detect(img, conf_th)
+            toc = time.time()
+            curr_fps = 1.0 / (toc - tic)
+            # calculate an exponentially decaying average of fps number
+            fps = curr_fps if fps == 0.0 else (fps*0.9 + curr_fps*0.1)
+            tic = toc
 
-                counter += 1
-                if counter > fps:
-                    logger.info("fps: %f", fps)
-                    if imu.IMURead():
-                        x, y, z = imu.getFusionData()
-                        logger.info("%f %f %f" % (x,y,z))
-                    counter = 0
+            counter += 1
+            if counter > fps:
+                logger.info("fps: %f", fps)
+                if imu.IMURead():
+                    x, y, z = imu.getFusionData()
+                    logger.info("%f %f %f" % (x,y,z))
+                counter = 0
 
-                # compute all detected objects
-                detections = []
-                for i, (bb, cf, cl) in enumerate(zip(boxes, confs, clss)):
-                    detections.append({'bbox': bb, 'confidence': cf, 'label': int(cl)})
-                if logger.isEnabledFor(logging.DEBUG) and (len(detections)) > 0:
-                    logger.debug(detections)
+            # compute all detected objects
+            detections = []
+            for i, (bb, cf, cl) in enumerate(zip(boxes, confs, clss)):
+                detections.append({'bbox': bb, 'confidence': cf, 'label': int(cl)})
+            if logger.isEnabledFor(logging.DEBUG) and (len(detections)) > 0:
+                logger.debug(detections)
 
-                # select detections that match selected class label
-                matching_detections = [d for d in detections if d['label'] in v2_coco_labels_to_capture and d['confidence'] > 0.50]
+            # select detections that match selected class label
+            matching_detections = [d for d in detections if d['label'] in v2_coco_labels_to_capture and d['confidence'] > 0.50]
 
-                if len(matching_detections) > 0:
-                    logger.debug(matching_detections)
+            if len(matching_detections) > 0:
+                logger.debug(matching_detections)
 
-                # get detection closest to center of field of view and center bot
-                det = closest_detection(matching_detections, width=cam.img_width, height=cam.img_height)
-                if det is not None:
-                    center = detection_center(det, cam.img_width, cam.img_height)
-                    logger.info("center: %s, on object: %s", center, cls_dict[det['label']])
+            # get detection closest to center of field of view and center bot
+            det = closest_detection(matching_detections, width=cam.img_width, height=cam.img_height)
+            if det is not None:
+                center = detection_center(det, cam.img_width, cam.img_height)
+                logger.info("center: %s, on object: %s", center, cls_dict[det['label']])
 
-                    move_speed = 2.0 * center[0]
-                    if abs(move_speed) > 0.3:
-                        if move_speed > 0.0:
-                            robot.right(move_speed)
-                        else:
-                            robot.left(abs(move_speed))
-                else:
-                    robot.stop()
+                move_speed = 2.0 * center[0]
+                if abs(move_speed) > 0.3:
+                    if move_speed > 0.0:
+                        robot.right(move_speed)
+                    else:
+                        robot.left(abs(move_speed))
+            else:
+                robot.stop()
 
 
 
@@ -286,28 +307,6 @@ def main():
     cam.open()
     if not cam.is_opened:
         sys.exit('Failed to open camera!')
-
-    SETTINGS_FILE="../dataset/RTIMULib"
-    logger.info("Using settings file %s", SETTINGS_FILE + ".ini")
-    if not os.path.exists(SETTINGS_FILE + ".ini"):
-        logger.error("Settings file does not exist, will be created")
-
-    s = RTIMU.Settings(SETTINGS_FILE)
-    imu = RTIMU.RTIMU(s)
-
-    logger.info("IMU Name: %s", imu.IMUName())
-
-    if not imu.IMUInit():
-        logger.error("IMU Init Failed")
-    else:
-        logger.info("IMU Init Succeeded")
-        imu.setSlerpPower(0.02)
-        imu.setGyroEnable(True)
-        imu.setAccelEnable(True)
-        imu.setCompassEnable(True)
-
-        poll_interval = imu.IMUGetPollInterval()
-        logger.info("Recommended Poll Interval: %f", poll_interval)
 
     trt_ssd = TrtSSD(args.model)
 
