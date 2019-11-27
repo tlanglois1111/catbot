@@ -95,7 +95,6 @@ class Gyro(threading.Thread):
         while self.keep_running:
             if self.good and self.imu.IMURead():
                 self.data = self.imu.getIMUData()
-                logger.info(self.data)
             time.sleep(self.poll_interval*1.0/1000.0)
 
     def get_headings(self):
