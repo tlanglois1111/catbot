@@ -302,8 +302,8 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model, gyro):
             counter += 1
             if counter > fps:
                 logger.info("fps: %f", fps)
-                #logger.info(imu.get_headings())
-                #counter = 0
+                logger.info(gyro.get_headings())
+                counter = 0
 
             # compute all detected objects
             detections = []

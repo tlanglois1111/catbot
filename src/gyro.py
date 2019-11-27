@@ -4,12 +4,9 @@ This is a Camera TensorFlow/TensorRT Object Detection code for
 Jetson Nano.
 """
 
-import sys
 import time
-import ctypes
-import argparse
+import threading
 import os
-import math
 
 import logging
 import logging.config
@@ -35,20 +32,20 @@ logging_config = {
         },
         'console': {
             'class': 'logging.StreamHandler',
-            'level': 'WARN',
+            'level': 'DEBUG',
             'formatter': 'standard',
             'stream': 'ext://sys.stdout'
         }
     },
     'loggers': {
         '__main__': {
-            'handlers': ['default_handler'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': False
         }
     },
     'root': {
-        'handlers': ['default_handler'],
+        'handlers': ['console'],
         'level': 'WARN',
         'propagate': False
     }
@@ -57,10 +54,11 @@ logging_config = {
 logging.config.dictConfig(logging_config)
 logger = logging.getLogger(__name__)
 
-class Gyro(object):
+
+class Gyro(threading.Thread):
     """RTIMU encapsulates use of gyro device"""
 
-    def load_rtimu_lib(self):
+    def _load_rtimu_lib(self):
 
         logger.info("Using settings file %s", self.SETTINGS_FILE + ".ini")
         if not os.path.exists(self.SETTINGS_FILE + ".ini"):
@@ -78,7 +76,7 @@ class Gyro(object):
             logger.info("IMU Init Succeeded")
             self.good = True
             self.imu.setSlerpPower(0.02)
-            #self.imu.setGyroEnable(True)
+            self.imu.setGyroEnable(True)
             self.imu.setAccelEnable(True)
             self.imu.setCompassEnable(True)
 
@@ -86,37 +84,39 @@ class Gyro(object):
             logger.info("Recommended Poll Interval: %f", self.poll_interval)
 
     def __init__(self, settings_path="../dataset/RTIMULib"):
+        threading.Thread.__init__(self)
         self.SETTINGS_FILE = settings_path
-        self.load_rtimu_lib()
+        self._load_rtimu_lib()
+        self.keep_running = True
+        self.data = []
+
+    def run(self):
+        logger.info("running gyro")
+        while self.keep_running:
+            if self.good and self.imu.IMURead():
+                self.data = self.imu.getIMUData()
+                logger.info(self.data)
+            time.sleep(self.poll_interval*1.0/1000.0)
 
     def get_headings(self):
         logger.info("about to get gyro reading")
-        if self.good and self.imu.IMURead():
-            logger.info("about to get data")
-            # x, y, z = imu.getFusionData()
-            # print("%f %f %f" % (x,y,z))
-            data = self.imu.getIMUData()
-            fusion_pose = data["fusionPose"]
-            accel_pose= data["accel"]
-            logger.info(accel_pose)
-            pitch =  math.degrees(accel_pose[1])
-            roll = math.degrees(accel_pose[0])
-            yaw = math.degrees(accel_pose[2])
-
-            #logger.info("pitch: %f roll: %f yaw: %f", pitch, roll, yaw)
-
-            return pitch, roll, yaw
+        if len(self.data) > 0:
+            return self.data["accel"]
         else:
-            return None, None, None
+            return self.data
+
+    def stop(self):
+        self.keep_running = False
+
 
 
 def main():
 
     accel = Gyro()
+    accel.start()
 
     while True:
-        accel.get_headings()
-        time.sleep(accel.poll_interval*1.0)
+        logger.info(accel.get_headings())
 
 
 if __name__ == '__main__':
