@@ -138,9 +138,9 @@ def load_rtimu_lib():
     else:
         logger.info("IMU Init Succeeded")
         imu.setSlerpPower(0.02)
-        imu.setGyroEnable(True)
+        imu.setGyroEnable(False)
         imu.setAccelEnable(True)
-        imu.setCompassEnable(True)
+        imu.setCompassEnable(False)
 
         poll_interval = imu.IMUGetPollInterval()
         logger.info("Recommended Poll Interval: %f", poll_interval)
@@ -272,7 +272,8 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                 logger.info("fps: %f", fps)
                 data = imu.getIMUData()
                 accel = data["accel"]
-                logger.info("r: %f p: %f y: %f" % accel[0], accel[1], accel[2])
+                logger.info(data)
+                #logger.info("r: %f p: %f y: %f" % accel[0], accel[1], accel[2])
                 counter = 0
 
             # compute all detected objects
