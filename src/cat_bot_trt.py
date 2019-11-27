@@ -286,10 +286,6 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model, gyro):
     counter = 58
     tic = time.time()
     while True:
-        if gyro.good and gyro.imu.IMURead():
-            data = gyro.imu.getIMUData()
-            logger.info(data)
-
         img = cam.read()
         if img is not None:
             boxes, confs, clss = trt_ssd.detect(img, conf_th)
@@ -334,7 +330,6 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model, gyro):
                 robot.stop()
 
 
-gyro = Gyro()
 
 
 def main():
@@ -343,7 +338,6 @@ def main():
     cam.open()
     if not cam.is_opened:
         sys.exit('Failed to open camera!')
-
 
     trt_ssd = TrtSSD(args.model)
 
@@ -355,13 +349,14 @@ def main():
 
     # grab image and do object detection (until stopped by user)
     logger.info("start gyro")
-    #gyro.start()
+    gyro = Gyro()
+    gyro.start()
 
     logger.info('starting to loop and detect')
     loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, model=args.model, gyro=gyro)
 
     logger.info('cleaning up')
-    #gyro.stop()
+    gyro.stop()
     robot.stop()
     cam.stop()
     cam.release()
