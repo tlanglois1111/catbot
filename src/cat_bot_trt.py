@@ -121,7 +121,7 @@ def postprocess(img, output, conf_th):
     return boxes, confs, clss
 
 
-class RTIMU(object):
+class Gyro(object):
     """RTIMU encapsulates use of gyro device"""
 
     def _load_rtimu_lib(self):
@@ -137,9 +137,10 @@ class RTIMU(object):
 
         if not self.imu.IMUInit():
             logger.error("IMU Init Failed")
-            self.imu = None
+            self.good = False
         else:
             logger.info("IMU Init Succeeded")
+            self.good = True
             self.imu.setSlerpPower(0.02)
             self.imu.setGyroEnable(True)
             self.imu.setAccelEnable(True)
@@ -149,23 +150,20 @@ class RTIMU(object):
             logger.info("Recommended Poll Interval: %f", self.poll_interval)
 
     def __init__(self, settings_path="../dataset/RTIMULib"):
-        self.SETTINGS = settings_path
+        self.SETTINGS_FILE = settings_path
         self._load_rtimu_lib()
 
     def get_headings(self):
-        if self.imu and self.imu.IMURead():
-            # x, y, z = imu.getFusionData()
-            # print("%f %f %f" % (x,y,z))
-            data = self.imu.getIMUData()
-            fusion_pose = data["fusionPose"]
-            logger.info(fusion_pose)
-            pitch =  math.degrees(fusion_pose[1])
-            roll = math.degrees(fusion_pose[0])
-            yaw = math.degrees(fusion_pose[2])
+        logger.info("about to get gyro reading")
+        if self.good and self.imu.IMURead():
+            x, y, z = imu.getFusionData()
+            logger.info("%f %f %f" % (x,y,z))
+            #data = self.imu.getIMUData()
+            #logger.info(data)
+            #compass = data["compass"]
+            #accel = data["accel"]
 
-            logger.info("pith: %f roll: %f yaw: %f", pitch, roll, yaw)
-
-            return pitch, roll, yaw
+            return z
 
 
 class TrtSSD(object):
@@ -288,8 +286,9 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model, imu):
             tic = toc
 
             counter += 1
-            if counter > 60:
+            if counter > fps:
                 logger.info("fps: %f", fps)
+                logger.info(imu.get_headings())
                 counter = 0
 
             # compute all detected objects
@@ -320,7 +319,6 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model, imu):
             else:
                 robot.stop()
 
-            pitch, roll, yaw = imu.get_headings()
 
 
 def main():
@@ -331,7 +329,8 @@ def main():
     if not cam.is_opened:
         sys.exit('Failed to open camera!')
 
-    imu = RTIMU()
+    imu = Gyro()
+
     trt_ssd = TrtSSD(args.model)
 
     cam.start()
