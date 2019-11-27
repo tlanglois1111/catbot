@@ -158,12 +158,13 @@ class Gyro(threading.Thread):
         self.data = []
 
     def run(self):
-        logger.info("running gyro")
+        print("running gyro")
         while self.keep_running:
-            if self.good and self.imu.IMURead():
+            if self.imu.IMURead():
                 self.data = self.imu.getIMUData()
-                logger.info(self.data)
+                print(self.data)
             time.sleep(self.poll_interval*1.0/1000.0)
+        print("gyro stopped")
 
     def get_headings(self):
         logger.info("about to get gyro reading")
