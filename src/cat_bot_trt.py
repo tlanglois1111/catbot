@@ -167,7 +167,7 @@ class Gyro(threading.Thread):
 
     def get_headings(self):
         logger.info("about to get gyro reading")
-        if len(self.data > 0):
+        if len(self.data) > 0:
             return self.data["accel"]
         else:
             return self.data
