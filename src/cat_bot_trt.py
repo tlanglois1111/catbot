@@ -158,9 +158,12 @@ class Gyro(threading.Thread):
         self.data = []
 
     def run(self):
+        logger.info("running gyro")
         while self.keep_running:
             if self.good and self.imu.IMURead():
                 self.data = self.imu.getIMUData()
+                logger.info(self.data)
+            time.sleep(self.poll_interval*1.0/1000.0)
 
 
     def get_headings(self):
@@ -344,7 +347,7 @@ def main():
 
     # grab image and do object detection (until stopped by user)
     logger.info("start gyro")
-    imu.thread.start()
+    imu.start()
 
     logger.info('starting to loop and detect')
     loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, model=args.model, imu=imu)
