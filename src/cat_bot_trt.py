@@ -158,13 +158,12 @@ class Gyro(threading.Thread):
         self.data = []
 
     def run(self):
-        print("running gyro")
+        logger.info("running gyro")
         while self.keep_running:
-            if self.imu.IMURead():
+            if self.good and self.imu.IMURead():
                 self.data = self.imu.getIMUData()
-                print(self.data)
+                logger.info(self.data)
             time.sleep(self.poll_interval*1.0/1000.0)
-        print("gyro stopped")
 
     def get_headings(self):
         logger.info("about to get gyro reading")
@@ -272,7 +271,7 @@ def closest_detection(detections, width, height):
     return closest_detection
 
 
-def loop_and_detect(cam, trt_ssd, conf_th, robot, model, imu):
+def loop_and_detect(cam, trt_ssd, conf_th, robot, model, gyro):
     """Loop, grab images from camera, and do object detection.
 
     # Arguments
@@ -287,6 +286,10 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model, imu):
     counter = 58
     tic = time.time()
     while True:
+        if gyro.good and gyro.imu.IMURead():
+            data = gyro.imu.getIMUData()
+            logger.info(data)
+
         img = cam.read()
         if img is not None:
             boxes, confs, clss = trt_ssd.detect(img, conf_th)
@@ -299,8 +302,8 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model, imu):
             counter += 1
             if counter > fps:
                 logger.info("fps: %f", fps)
-                logger.info(imu.get_headings())
-                counter = 0
+                #logger.info(imu.get_headings())
+                #counter = 0
 
             # compute all detected objects
             detections = []
@@ -331,6 +334,9 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model, imu):
                 robot.stop()
 
 
+gyro = Gyro()
+
+
 def main():
     args = parse_args()
     cam = Camera(args)
@@ -338,7 +344,6 @@ def main():
     if not cam.is_opened:
         sys.exit('Failed to open camera!')
 
-    imu = Gyro()
 
     trt_ssd = TrtSSD(args.model)
 
@@ -350,13 +355,13 @@ def main():
 
     # grab image and do object detection (until stopped by user)
     logger.info("start gyro")
-    imu.start()
+    #gyro.start()
 
     logger.info('starting to loop and detect')
-    loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, model=args.model, imu=imu)
+    loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, model=args.model, gyro=gyro)
 
     logger.info('cleaning up')
-    imu.stop()
+    #gyro.stop()
     robot.stop()
     cam.stop()
     cam.release()
