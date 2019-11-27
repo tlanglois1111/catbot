@@ -239,6 +239,7 @@ def closest_detection(detections, width, height):
 
 
 def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
+    global imu
     """Loop, grab images from camera, and do object detection.
 
     # Arguments
