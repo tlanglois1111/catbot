@@ -122,31 +122,6 @@ def postprocess(img, output, conf_th):
     return boxes, confs, clss
 
 
-def load_rtimu_lib():
-    settings_path = "../dataset/RTIMULib"
-    logger.info("Using settings file %s", settings_path + ".ini")
-    if not os.path.exists(settings_path + ".ini"):
-        logger.error("Settings file does not exist, will be created")
-
-    s = RTIMU.Settings(settings_path)
-    imu = RTIMU.RTIMU(s)
-
-    logger.info("IMU Name: %s", imu.IMUName())
-
-    if not imu.IMUInit():
-        logger.error("IMU Init Failed")
-    else:
-        logger.info("IMU Init Succeeded")
-        imu.setSlerpPower(0.02)
-        imu.setGyroEnable(True)
-        imu.setAccelEnable(True)
-        imu.setCompassEnable(True)
-
-        poll_interval = imu.IMUGetPollInterval()
-        logger.info("Recommended Poll Interval: %f", poll_interval)
-    return imu
-
-
 class TrtSSD(object):
     """TrtSSD class encapsulates things needed to run TRT SSD."""
 
@@ -251,8 +226,28 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
       conf_th: confidence/score threshold for object detection.
       vis: for visualization.
     """
+    settings_path = "../dataset/RTIMULib"
+    logger.info("Using settings file %s", settings_path + ".ini")
+    if not os.path.exists(settings_path + ".ini"):
+        logger.error("Settings file does not exist, will be created")
 
-    imu = load_rtimu_lib()
+    s = RTIMU.Settings(settings_path)
+    imu = RTIMU.RTIMU(s)
+
+    logger.info("IMU Name: %s", imu.IMUName())
+
+    if not imu.IMUInit():
+        logger.error("IMU Init Failed")
+    else:
+        logger.info("IMU Init Succeeded")
+        imu.setSlerpPower(0.02)
+        imu.setGyroEnable(True)
+        imu.setAccelEnable(True)
+        imu.setCompassEnable(True)
+
+        poll_interval = imu.IMUGetPollInterval()
+        logger.info("Recommended Poll Interval: %f", poll_interval)
+
     cls_dict = get_cls_dict(model.split('_')[-1])
     fps = 0.0
     counter = 58
