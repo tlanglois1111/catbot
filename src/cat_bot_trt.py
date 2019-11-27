@@ -319,7 +319,7 @@ def main():
 
     # grab image and do object detection (until stopped by user)
     logger.info('starting to loop and detect')
-    loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, model=args.model, imu=imu)
+    loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, model=args.model)
 
     logger.info('cleaning up')
     robot.stop()
