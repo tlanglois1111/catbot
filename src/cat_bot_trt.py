@@ -165,10 +165,12 @@ class Gyro(threading.Thread):
                 logger.info(self.data)
             time.sleep(self.poll_interval*1.0/1000.0)
 
-
     def get_headings(self):
         logger.info("about to get gyro reading")
-        return self.data["accel"]
+        if len(self.data > 0):
+            return self.data["accel"]
+        else:
+            return self.data
 
     def stop(self):
         self.keep_running = False
