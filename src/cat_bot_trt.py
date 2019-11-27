@@ -271,7 +271,8 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             if counter > fps:
                 logger.info("fps: %f", fps)
                 data = imu.getIMUData()
-                logger.info(data)
+                fusion_pose = data["fusionPose"]
+                logger.info("r: %f p: %f y: %f" % (math.degrees(fusion_pose[0]), math.degrees(fusion_pose[1]), math.degrees(fusion_pose[2])))
                 counter = 0
 
             # compute all detected objects
