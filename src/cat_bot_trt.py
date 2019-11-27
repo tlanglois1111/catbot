@@ -151,6 +151,7 @@ class Gyro(threading.Thread):
             logger.info("Recommended Poll Interval: %f", self.poll_interval)
 
     def __init__(self, settings_path="../dataset/RTIMULib"):
+        threading.Thread.__init__(self)
         self.SETTINGS_FILE = settings_path
         self._load_rtimu_lib()
         self.keep_running = True
@@ -160,6 +161,7 @@ class Gyro(threading.Thread):
         while self.keep_running:
             if self.good and self.imu.IMURead():
                 self.data = self.imu.getIMUData()
+
 
     def get_headings(self):
         logger.info("about to get gyro reading")
