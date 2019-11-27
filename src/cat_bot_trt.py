@@ -121,51 +121,6 @@ def postprocess(img, output, conf_th):
     return boxes, confs, clss
 
 
-class Gyro(object):
-    """RTIMU encapsulates use of gyro device"""
-
-    def _load_rtimu_lib(self):
-
-        logger.info("Using settings file %s", self.SETTINGS_FILE + ".ini")
-        if not os.path.exists(self.SETTINGS_FILE + ".ini"):
-            logger.error("Settings file does not exist, will be created")
-
-        s = RTIMU.Settings(self.SETTINGS_FILE)
-        self.imu = RTIMU.RTIMU(s)
-
-        logger.info("IMU Name: %s", self.imu.IMUName())
-
-        if not self.imu.IMUInit():
-            logger.error("IMU Init Failed")
-            self.good = False
-        else:
-            logger.info("IMU Init Succeeded")
-            self.good = True
-            self.imu.setSlerpPower(0.02)
-            self.imu.setGyroEnable(True)
-            self.imu.setAccelEnable(True)
-            self.imu.setCompassEnable(True)
-
-            self.poll_interval = self.imu.IMUGetPollInterval()
-            logger.info("Recommended Poll Interval: %f", self.poll_interval)
-
-    def __init__(self, settings_path="../dataset/RTIMULib"):
-        self.SETTINGS_FILE = settings_path
-        self._load_rtimu_lib()
-
-    def get_headings(self):
-        logger.info("about to get gyro reading")
-        if self.good and self.imu.IMURead():
-            x, y, z = imu.getFusionData()
-            logger.info("%f %f %f" % (x,y,z))
-            #data = self.imu.getIMUData()
-            #logger.info(data)
-            #compass = data["compass"]
-            #accel = data["accel"]
-
-            return z
-
-
 class TrtSSD(object):
     """TrtSSD class encapsulates things needed to run TRT SSD."""
 
@@ -319,6 +274,9 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model, imu):
             else:
                 robot.stop()
 
+            if imu.IMURead():
+                x, y, z = imu.getFusionData()
+                logger.info("%f %f %f" % (x,y,z))
 
 
 def main():
@@ -329,7 +287,27 @@ def main():
     if not cam.is_opened:
         sys.exit('Failed to open camera!')
 
-    imu = Gyro()
+    SETTINGS_FILE="../dataset/RTIMULib"
+    logger.info("Using settings file %s", SETTINGS_FILE + ".ini")
+    if not os.path.exists(SETTINGS_FILE + ".ini"):
+        logger.error("Settings file does not exist, will be created")
+
+    s = RTIMU.Settings(SETTINGS_FILE)
+    imu = RTIMU.RTIMU(s)
+
+    logger.info("IMU Name: %s", imu.IMUName())
+
+    if not imu.IMUInit():
+        logger.error("IMU Init Failed")
+    else:
+        logger.info("IMU Init Succeeded")
+        imu.setSlerpPower(0.02)
+        imu.setGyroEnable(True)
+        imu.setAccelEnable(True)
+        imu.setCompassEnable(True)
+
+        poll_interval = imu.IMUGetPollInterval()
+        logger.info("Recommended Poll Interval: %f", poll_interval)
 
     trt_ssd = TrtSSD(args.model)
 
