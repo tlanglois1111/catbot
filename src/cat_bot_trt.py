@@ -9,6 +9,7 @@ import time
 import ctypes
 import argparse
 import os
+import threading
 import math
 
 import logging
@@ -81,28 +82,6 @@ SUPPORTED_MODELS = [
     'ssd_mobilenet_v2_egohands',
 ]
 
-SETTINGS_FILE="../dataset/RTIMULib"
-logger.info("Using settings file %s", SETTINGS_FILE + ".ini")
-if not os.path.exists(SETTINGS_FILE + ".ini"):
-    logger.error("Settings file does not exist, will be created")
-
-s = RTIMU.Settings(SETTINGS_FILE)
-imu = RTIMU.RTIMU(s)
-
-logger.info("IMU Name: %s", imu.IMUName())
-
-if not imu.IMUInit():
-    logger.error("IMU Init Failed")
-else:
-    logger.info("IMU Init Succeeded")
-    imu.setSlerpPower(0.02)
-    imu.setGyroEnable(True)
-    imu.setAccelEnable(True)
-    imu.setCompassEnable(True)
-
-    poll_interval = imu.IMUGetPollInterval()
-    logger.info("Recommended Poll Interval: %f", poll_interval)
-
 
 def parse_args():
     """Parse input arguments."""
@@ -141,6 +120,53 @@ def postprocess(img, output, conf_th):
         confs.append(conf)
         clss.append(cls)
     return boxes, confs, clss
+
+
+class Gyro(threading.Thread):
+    """RTIMU encapsulates use of gyro device"""
+
+    def _load_rtimu_lib(self):
+
+        logger.info("Using settings file %s", self.SETTINGS_FILE + ".ini")
+        if not os.path.exists(self.SETTINGS_FILE + ".ini"):
+            logger.error("Settings file does not exist, will be created")
+
+        s = RTIMU.Settings(self.SETTINGS_FILE)
+        self.imu = RTIMU.RTIMU(s)
+
+        logger.info("IMU Name: %s", self.imu.IMUName())
+
+        if not self.imu.IMUInit():
+            logger.error("IMU Init Failed")
+            self.good = False
+        else:
+            logger.info("IMU Init Succeeded")
+            self.good = True
+            self.imu.setSlerpPower(0.02)
+            self.imu.setGyroEnable(True)
+            self.imu.setAccelEnable(True)
+            self.imu.setCompassEnable(True)
+
+            self.poll_interval = self.imu.IMUGetPollInterval()
+            logger.info("Recommended Poll Interval: %f", self.poll_interval)
+
+    def __init__(self, settings_path="../dataset/RTIMULib"):
+        self.SETTINGS_FILE = settings_path
+        self._load_rtimu_lib()
+        self.keep_running = True
+        self.data = []
+
+    def run(self):
+        while self.keep_running:
+            if self.good and self.imu.IMURead():
+                self.data = self.imu.getIMUData()
+
+    def get_headings(self):
+        logger.info("about to get gyro reading")
+        return self.data["accel"]
+
+    def stop(self):
+        self.keep_running = False
 
 
 class TrtSSD(object):
@@ -238,8 +264,7 @@ def closest_detection(detections, width, height):
     return closest_detection
 
 
-def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
-    global imu
+def loop_and_detect(cam, trt_ssd, conf_th, robot, model, imu):
     """Loop, grab images from camera, and do object detection.
 
     # Arguments
@@ -266,9 +291,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             counter += 1
             if counter > fps:
                 logger.info("fps: %f", fps)
-                if imu.IMURead():
-                    x, y, z = imu.getFusionData()
-                    logger.info("%f %f %f" % (x,y,z))
+                logger.info(imu.get_headings())
                 counter = 0
 
             # compute all detected objects
@@ -300,14 +323,14 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                 robot.stop()
 
 
-
 def main():
-
     args = parse_args()
     cam = Camera(args)
     cam.open()
     if not cam.is_opened:
         sys.exit('Failed to open camera!')
+
+    imu = Gyro()
 
     trt_ssd = TrtSSD(args.model)
 
@@ -319,9 +342,10 @@ def main():
 
     # grab image and do object detection (until stopped by user)
     logger.info('starting to loop and detect')
-    loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, model=args.model)
+    loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, model=args.model, imu=imu)
 
     logger.info('cleaning up')
+    imu.stop()
     robot.stop()
     cam.stop()
     cam.release()
