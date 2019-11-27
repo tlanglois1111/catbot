@@ -123,7 +123,7 @@ def postprocess(img, output, conf_th):
 
 
 def load_rtimu_lib():
-    settings_path="../dataset/RTIMULib"
+    settings_path = "../dataset/RTIMULib"
     logger.info("Using settings file %s", settings_path + ".ini")
     if not os.path.exists(settings_path + ".ini"):
         logger.error("Settings file does not exist, will be created")
@@ -138,9 +138,9 @@ def load_rtimu_lib():
     else:
         logger.info("IMU Init Succeeded")
         imu.setSlerpPower(0.02)
-        imu.setGyroEnable(False)
+        imu.setGyroEnable(True)
         imu.setAccelEnable(True)
-        imu.setCompassEnable(False)
+        imu.setCompassEnable(True)
 
         poll_interval = imu.IMUGetPollInterval()
         logger.info("Recommended Poll Interval: %f", poll_interval)
