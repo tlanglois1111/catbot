@@ -273,7 +273,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                     accel = gyro["accel"]
                     fusion = gyro["fusionPose"]
                     logger.info("r: %f p: %f y: %f" % (math.degrees(fusion[0]), math.degrees(fusion[1]), math.degrees(fusion[2])))
-                    logger.info("x: %.2f y: %.2f z: %.2f" % accel[0], accel[1], accel[2])
+                    logger.info("x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
                 counter = 0
 
             # compute all detected objects
