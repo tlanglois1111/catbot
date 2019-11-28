@@ -269,6 +269,8 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                 if imu.IMURead():
                     accel = gyro["accel"]
                     logger.info(accel)
+                else:
+                    imu.IMUInit()
                 counter = 0
 
             # compute all detected objects
