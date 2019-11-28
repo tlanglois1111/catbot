@@ -257,7 +257,6 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             gyro = imu.getIMUData().copy()
         else:
             gyro = []
-        logger.info(gyro)
         img = cam.read()
         if img is not None:
             boxes, confs, clss = trt_ssd.detect(img, conf_th)
