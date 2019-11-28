@@ -253,7 +253,8 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     counter = 58
     tic = time.time()
     while True:
-        gyro = imu.getIMUData()
+        gyro = imu.getIMUData().copy()
+        logger.info(gyro)
         img = cam.read()
         if img is not None:
             boxes, confs, clss = trt_ssd.detect(img, conf_th)
@@ -269,8 +270,6 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                 if imu.IMURead():
                     accel = gyro["accel"]
                     logger.info(accel)
-                else:
-                    imu.IMUInit()
                 counter = 0
 
             # compute all detected objects
