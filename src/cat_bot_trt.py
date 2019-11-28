@@ -253,7 +253,10 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     counter = 58
     tic = time.time()
     while True:
-        gyro = imu.getIMUData().copy()
+        if imu.IMURead():
+            gyro = imu.getIMUData().copy()
+        else:
+            gyro = []
         logger.info(gyro)
         img = cam.read()
         if img is not None:
@@ -267,7 +270,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             counter += 1
             if counter > fps:
                 logger.info("fps: %f", fps)
-                if imu.IMURead():
+                if len(gyro) > 0:
                     accel = gyro["accel"]
                     logger.info(accel)
                 counter = 0
