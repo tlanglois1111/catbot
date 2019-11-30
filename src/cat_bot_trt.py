@@ -12,6 +12,9 @@ import os
 import threading
 import math
 
+import csv
+from uuid import uuid1
+
 import logging
 import logging.config
 
@@ -25,7 +28,7 @@ import RTIMU
 from utils.ssd_classes import get_cls_dict
 from utils.camera import add_camera_args, Camera
 
-from jetbot import Robot
+from jetbot import Robot,bgr8_to_jpeg
 
 logging_config = {
     'version': 1,
@@ -73,7 +76,8 @@ logging.getLogger('tensorflow').propagate = False
 
 # Constants
 v2_coco_labels_to_capture = [16, 17, 18]
-INPUT_WH = (300, 300)
+model_width = 300
+model_height = 300
 OUTPUT_LAYOUT = 7
 SUPPORTED_MODELS = [
     'ssd_mobilenet_v1_coco',
@@ -81,6 +85,7 @@ SUPPORTED_MODELS = [
     'ssd_mobilenet_v2_coco',
     'ssd_mobilenet_v2_egohands',
 ]
+IMAGE_DIR = '../dataset/cats'
 
 
 def parse_args():
@@ -96,7 +101,7 @@ def parse_args():
 def preprocess(img):
     """Preprocess an image before SSD inferencing."""
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img = cv2.resize(img, INPUT_WH)
+    img = cv2.resize(img, (model_width, model_height))
     img = img.transpose((2, 0, 1)).astype(np.float32)
     img = (2.0/255.0) * img - 1.0
     return img
@@ -120,6 +125,44 @@ def postprocess(img, output, conf_th):
         confs.append(conf)
         clss.append(cls)
     return boxes, confs, clss
+
+
+# Inherting the base class 'Thread'
+class AsyncWrite(threading.Thread):
+
+    def __init__(self, directory, filename, image, tf_list, blocked):
+        # calling superclass init
+        threading.Thread.__init__(self)
+        self.image = image
+        self.directory = directory
+        self.filename = filename
+        self.tf_list = tf_list
+        self.blocked = blocked
+
+    def run(self):
+        if len(self.tf_list) == 0:
+            if self.blocked:
+                path = self.directory + "/blocked"
+            else:
+                path = self.directory + "/not_blocked"
+            image_path = os.path.join(path, self.filename+'.jpg')
+            with open(image_path, 'wb') as f:
+                f.write(self.image)
+        else:
+            image_path = os.path.join(self.directory, self.filename+'.jpg')
+            with open(image_path, 'wb') as f:
+                f.write(self.image)
+
+            csv_path = os.path.join(self.directory, self.filename+'.csv')
+            with open(csv_path, 'a') as outcsv:
+                writer = csv.writer(outcsv)
+                writer.writerows(self.tf_list)
+                outcsv.close()
+
+
+def save_image(image, filename, tf_list=[], blocked=False):
+    background = AsyncWrite(IMAGE_DIR, filename, image, tf_list)
+    background.start()
 
 
 class TrtSSD(object):
@@ -226,6 +269,10 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
       conf_th: confidence/score threshold for object detection.
       vis: for visualization.
     """
+
+    xscale = model_width * (cam.img_width / model_width)
+    yscale = model_height * (cam.img_height / model_height)
+
     settings_path = "../dataset/RTIMULib"
     logger.info("Using settings file %s", settings_path + ".ini")
     if not os.path.exists(settings_path + ".ini"):
@@ -253,8 +300,19 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     counter = 58
     tic = time.time()
     while True:
+        filename = str(uuid1())
         if imu.IMURead():
             gyro = imu.getIMUData().copy()
+            accel = gyro["accel"]
+            if accel[0] >= 0.9:
+                save_image(bgr8_to_jpeg(img), filename, blocked=False)
+                logger.info("not blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
+                robot.forward(0.5)
+            else:
+                save_image(bgr8_to_jpeg(img), filename, blocked=True)
+                logger.info("blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
+                robot.backward(0.5)
+                robot.left(0.4)
         else:
             gyro = []
         img = cam.read()
@@ -270,7 +328,6 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             if counter > fps:
                 logger.info("fps: %f", fps)
                 if len(gyro) > 0:
-                    accel = gyro["accel"]
                     fusion = gyro["fusionPose"]
                     logger.info("r: %f p: %f y: %f" % (math.degrees(fusion[0]), math.degrees(fusion[1]), math.degrees(fusion[2])))
                     logger.info("x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
@@ -286,8 +343,31 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             # select detections that match selected class label
             matching_detections = [d for d in detections if d['label'] in v2_coco_labels_to_capture and d['confidence'] > 0.50]
 
+            # save detected image for later training
             if len(matching_detections) > 0:
                 logger.debug(matching_detections)
+
+            tf_image_list = []
+            for d in matching_detections:
+                bbox = d['bbox']
+                xmin = int(xscale * bbox[0])
+                ymin = int(yscale * bbox[1])
+                xmax = int(xscale * bbox[2])
+                ymax = int(yscale * bbox[3])
+                if xmin < 0:
+                    xmin = 0
+                if ymin < 0:
+                    ymin = 0
+                if xmax > cam.img_width:
+                    xmax = cam.img_width-1
+                if ymax > cam.img_height:
+                    ymax = cam.img_height-1
+
+                tf_image_desc = [filename+'.jpg', cam.img_width, cam.img_height, int(d['label']), xmin, ymin, xmax, ymax]
+                tf_image_list.append(tf_image_desc)
+
+            save_image(bgr8_to_jpeg(img), filename, tf_list=tf_image_list)
+            # end save image
 
             # get detection closest to center of field of view and center bot
             det = closest_detection(matching_detections, width=cam.img_width, height=cam.img_height)
@@ -302,7 +382,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                     else:
                         robot.left(abs(move_speed))
             else:
-                robot.stop()
+                robot.forward(0.5)
 
 
 def main():
