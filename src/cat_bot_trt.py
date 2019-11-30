@@ -56,7 +56,7 @@ logging_config = {
     },
     'loggers': {
         '__main__': {
-            'handlers': ['console'],
+            'handlers': ['console', 'default_handler'],
             'level': 'INFO',
             'propagate': False
         }
@@ -357,7 +357,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                     if img is not None and moving and accel[0] > BLOCKED_THRESHOLD:
                         save_image(bgr8_to_jpeg(img), filename, blocked=False)
                         logger.info("not blocked:  x: %.4f y: %.4f z: %.4f" % (accel[0], accel[1], accel[2]))
-                        robot.forward(FORWARD_SPEED)
+                        #robot.forward(FORWARD_SPEED)
                         moving = True
                     elif img is not None and moving:
                         if False:
@@ -417,7 +417,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                     else:
                         robot.left(abs(move_speed))
 
-        robot.forward(FORWARD_SPEED)
+        #robot.forward(FORWARD_SPEED)
         moving = True
 
 
