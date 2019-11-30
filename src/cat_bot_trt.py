@@ -260,7 +260,11 @@ def closest_detection(detections, width, height):
     return closest_detection
 
 
+moving = False
+
+
 def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
+    global moving
     """Loop, grab images from camera, and do object detection.
 
     # Arguments
@@ -272,7 +276,6 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
 
     xscale = model_width * (cam.img_width / model_width)
     yscale = model_height * (cam.img_height / model_height)
-    moving = False
 
     settings_path = "../dataset/RTIMULib"
     logger.info("Using settings file %s", settings_path + ".ini")
