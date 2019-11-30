@@ -309,7 +309,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
         if imu.IMURead():
             gyro = imu.getIMUData().copy()
             accel = gyro["accel"]
-            if img is not None and moving and accel[0] >= 0.9:
+            if img is not None and moving and accel[0] >= 0.1:
                 save_image(bgr8_to_jpeg(img), filename, blocked=False)
                 logger.info("not blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
                 robot.forward(0.5)
