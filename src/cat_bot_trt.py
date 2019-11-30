@@ -269,6 +269,7 @@ acceleration = [[0, 0, 0], [0, 0, 0]]
 velocity = [0, 0, 0]
 MAGIC_NUMBER = 0.7300
 
+
 def get_velocity(gyro):
     for j in range(0, 3):
         acceleration[0] = acceleration[1]
@@ -328,7 +329,17 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
 
             v = get_velocity(gyro)
 
+            accel = gyro["accel"]
+            fusion = gyro["fusionPose"]
+            compass = gyro["compass"]
+            gyro1 = gyro["gyro"]
+            fusionq = gyro["fusionQPose"]
             logger.info("velocity:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
+            logger.info("  fusion:  x: %.4f y: %.4f z: %.4f" % (fusion[0], fusion[1], fusion[2]))
+            logger.info("   accel:  x: %.4f y: %.4f z: %.4f" % (accel[0], accel[1], accel[2]))
+            logger.info(" compass:  x: %.4f y: %.4f z: %.4f" % (compass[0], compass[1], compass[2]))
+            logger.info("    gyro:  x: %.4f y: %.4f z: %.4f" % (gyro1[0], gyro1[1], gyro1[2]))
+            logger.info(" fusionq:  x: %.4f y: %.4f z: %.4f" % (fusionq[0], fusionq[1], fusionq[2]))
         else:
             gyro = []
 
