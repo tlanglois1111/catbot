@@ -161,7 +161,7 @@ class AsyncWrite(threading.Thread):
 
 
 def save_image(image, filename, tf_list=[], blocked=False):
-    background = AsyncWrite(IMAGE_DIR, filename, image, tf_list)
+    background = AsyncWrite(IMAGE_DIR, filename, image, tf_list, blocked)
     background.start()
 
 
