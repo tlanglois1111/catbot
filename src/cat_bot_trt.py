@@ -277,7 +277,7 @@ def get_velocity(gyro):
         velocity[j] = acceleration[0][j] + ((acceleration[1][j] - acceleration[0][j]) / 2)
         #position[j][1] = position[j][0] + velocity[j][0] + ((velocity[j][1] - velocity[j][0]) / 2)
 
-        return velocity
+        return gyro["fusionQPose"]
 
 
 def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
