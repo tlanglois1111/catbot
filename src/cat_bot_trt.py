@@ -270,7 +270,7 @@ MAGIC_NUMBER = 0.0303
 
 
 def get_velocity(v, acceleration):
-    velocity[0] = v[0] + (acceleration[0] - MAGIC_NUMBER)
+    velocity[0] = v[0] + acceleration[0]
     velocity[1] = v[1] + acceleration[1]
     velocity[2] = v[2] + acceleration[2]
 
