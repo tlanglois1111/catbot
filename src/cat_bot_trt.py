@@ -313,6 +313,8 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
         if imu.IMURead():
             gyro = imu.getIMUData().copy()
             accel = gyro["accel"]
+            fusion = gyro("fusionPose")
+            logger.info("fusion:  x: %.2f y: %.2f z: %.2f" % (fusion[0], fusion[1], fusion[2]))
             logger.info("accel:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
         else:
             gyro = []
