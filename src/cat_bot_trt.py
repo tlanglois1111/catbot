@@ -326,26 +326,9 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
         if imu.IMURead():
             gyro = imu.getIMUData().copy()
             accel = gyro["accel"]
-            fusion = gyro["fusionPose"]
-            compass = gyro["compass"]
-            gyro1 = gyro["gyro"]
-            fusionq = gyro["fusionQPose"]
-            logger.info("velocity:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
-            logger.info("  fusion:  x: %.4f y: %.4f z: %.4f" % (fusion[0], fusion[1], fusion[2]))
             logger.info("   accel:  x: %.4f y: %.4f z: %.4f" % (accel[0], accel[1], accel[2]))
-            logger.info(" compass:  x: %.4f y: %.4f z: %.4f" % (compass[0], compass[1], compass[2]))
-            logger.info("    gyro:  x: %.4f y: %.4f z: %.4f" % (gyro1[0], gyro1[1], gyro1[2]))
-            logger.info(" fusionq:  x: %.4f y: %.4f z: %.4f" % (fusionq[0], fusionq[1], fusionq[2]))
 
             acc_list.append(accel)
-
-            if counter == 0:
-                npl = np.array(acc_list)
-                res = np.mean(npl, 0)
-                logger.info(res)
-                v = get_velocity(v, res)
-                logger.info(" v:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
-                acc_list = []
 
         else:
             gyro = []
@@ -361,6 +344,14 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             counter += 1
             if counter > fps:
                 logger.info("fps: %f", fps)
+                npl = np.array(acc_list)
+                res = np.mean(npl, 0)
+                logger.info(res)
+                v = get_velocity(v, res)
+                logger.info(" v:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
+                acc_list = []
+                counter = 0
+
                 if len(gyro) > 0:
                     if img is not None and moving and v[0] > 0:
                         save_image(bgr8_to_jpeg(img), filename, blocked=False)
@@ -374,7 +365,6 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                             moving = False
                             robot.set_motors(BACKWARD_SPEED, BACKWARD_SPEED/2)
                             time.sleep(REVERSE_TIME)
-                counter = 0
 
             # compute all detected objects
             detections = []
