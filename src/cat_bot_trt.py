@@ -318,7 +318,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                 logger.info("blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
                 moving = False
                 robot.backward(0.5)
-                time.sleep(500)
+                #time.sleep(500)
                 robot.left(0.4)
         else:
             gyro = []
