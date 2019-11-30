@@ -270,7 +270,7 @@ MAGIC_NUMBER = 0.0303
 
 
 def get_velocity(v, acceleration):
-    velocity[0] = v[0] + acceleration[0]
+    velocity[0] = (v[0] * 0.9) + (acceleration[0] * 0.1)
     velocity[1] = v[1] + acceleration[1]
     velocity[2] = v[2] + acceleration[2]
 
@@ -345,7 +345,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             if counter > fps:
                 logger.info("fps: %f", fps)
                 npl = np.array(acc_list)
-                res = np.mean(npl, 0)
+                res = np.sum(npl, 0)
                 logger.info(res)
                 v = get_velocity(v, res)
                 logger.info(" v:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
