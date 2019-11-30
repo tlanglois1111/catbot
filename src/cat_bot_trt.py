@@ -309,17 +309,6 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
         if imu.IMURead():
             gyro = imu.getIMUData().copy()
             accel = gyro["accel"]
-            if img is not None and moving and accel[0] >= 0.1:
-                save_image(bgr8_to_jpeg(img), filename, blocked=False)
-                logger.info("not blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
-                robot.forward(0.5)
-            elif img is not None and moving:
-                save_image(bgr8_to_jpeg(img), filename, blocked=True)
-                logger.info("blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
-                moving = False
-                robot.backward(0.5)
-                #time.sleep(500)
-                robot.left(0.4)
         else:
             gyro = []
 
@@ -335,9 +324,17 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             if counter > fps:
                 logger.info("fps: %f", fps)
                 if len(gyro) > 0:
-                    fusion = gyro["fusionPose"]
-                    #logger.info("r: %f p: %f y: %f" % (math.degrees(fusion[0]), math.degrees(fusion[1]), math.degrees(fusion[2])))
-                    #logger.info("x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
+                    if img is not None and moving and accel[0] >= 0.1:
+                        save_image(bgr8_to_jpeg(img), filename, blocked=False)
+                        logger.info("not blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
+                        robot.forward(0.5)
+                        moving = True
+                    elif img is not None and moving:
+                        save_image(bgr8_to_jpeg(img), filename, blocked=True)
+                        logger.info("blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
+                        moving = False
+                        robot.backward(0.5)
+                        robot.left(0.4)
                 counter = 0
 
             # compute all detected objects
