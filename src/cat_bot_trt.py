@@ -86,7 +86,7 @@ SUPPORTED_MODELS = [
     'ssd_mobilenet_v2_egohands',
 ]
 IMAGE_DIR = '../dataset/cats'
-FORWARD_SPEED = 0.8
+FORWARD_SPEED = 0.7
 BACKWARD_SPEED = -0.6
 TURNING_SPEED = 0.6
 
@@ -263,10 +263,10 @@ def closest_detection(detections, width, height):
 
 
 moving = False
-
+wait = True
 
 def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
-    global moving
+    global moving,wait
     """Loop, grab images from camera, and do object detection.
 
     # Arguments
@@ -332,11 +332,15 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                         robot.forward(FORWARD_SPEED)
                         moving = True
                     elif img is not None and moving:
-                        save_image(bgr8_to_jpeg(img), filename, blocked=True)
-                        logger.info("blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
-                        moving = False
-                        robot.set_motors(BACKWARD_SPEED, BACKWARD_SPEED/2)
-                        time.sleep(0.5)
+                        if wait:
+                            wait = False
+                        else:
+                            save_image(bgr8_to_jpeg(img), filename, blocked=True)
+                            logger.info("blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
+                            moving = False
+                            wait = True
+                            robot.set_motors(BACKWARD_SPEED, BACKWARD_SPEED/2)
+                            time.sleep(0.5)
                 counter = 0
 
             # compute all detected objects
