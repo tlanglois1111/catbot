@@ -267,7 +267,7 @@ def closest_detection(detections, width, height):
 moving = False
 acceleration = [[0, 0, 0], [0, 0, 0]]
 velocity = [0, 0, 0]
-MAGIC_NUMBER=0.6800
+MAGIC_NUMBER = 0.7300
 
 def get_velocity(gyro):
     for j in range(0, 3):
