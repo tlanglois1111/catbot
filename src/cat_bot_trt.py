@@ -270,12 +270,12 @@ velocity = [0, 0, 0]
 MAGIC_NUMBER = 0.7300
 
 
-def get_velocity(gyro):
+def get_velocity(v, accel):
     for j in range(0, 3):
         acceleration[0] = acceleration[1]
-        acceleration[1] = gyro["fusionQPose"]
+        acceleration[1] = accel
 
-        velocity[j] = acceleration[0][j] + ((acceleration[1][j] - acceleration[0][j]) / 2)
+        velocity[j] = v[j] + acceleration[0][j] + ((acceleration[1][j] - acceleration[0][j]) / 2)
         #position[j][1] = position[j][0] + velocity[j][0] + ((velocity[j][1] - velocity[j][0]) / 2)
 
         return velocity
@@ -321,25 +321,24 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     fps = 0.0
     counter = 58
     tic = time.time()
+    acc_list = []
+    v0 = 0
+
     while True:
         img = cam.read()
         filename = str(uuid1())
         if imu.IMURead():
             gyro = imu.getIMUData().copy()
 
-            v = get_velocity(gyro)
+            acc_list.append(gyro["accel"])
 
-            accel = gyro["accel"]
-            fusion = gyro["fusionPose"]
-            compass = gyro["compass"]
-            gyro1 = gyro["gyro"]
-            fusionq = gyro["fusionQPose"]
-            logger.info("velocity:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
-            logger.info("  fusion:  x: %.4f y: %.4f z: %.4f" % (fusion[0], fusion[1], fusion[2]))
-            logger.info("   accel:  x: %.4f y: %.4f z: %.4f" % (accel[0], accel[1], accel[2]))
-            logger.info(" compass:  x: %.4f y: %.4f z: %.4f" % (compass[0], compass[1], compass[2]))
-            logger.info("    gyro:  x: %.4f y: %.4f z: %.4f" % (gyro1[0], gyro1[1], gyro1[2]))
-            logger.info(" fusionq:  x: %.4f y: %.4f z: %.4f" % (fusionq[0], fusionq[1], fusionq[2]))
+            if counter == 0:
+                npl = np.array(acc_list)
+                res = np.mean(npl, 0)
+                logger.info(res)
+                v = get_velocity(v, res)
+                logger.info(" v:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
+
         else:
             gyro = []
 
@@ -355,7 +354,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             if counter > fps:
                 logger.info("fps: %f", fps)
                 if len(gyro) > 0:
-                    if img is not None and moving and (v[0] - MAGIC_NUMBER) > BLOCKED_THRESHOLD:
+                    if img is not None and moving and v[0] > 0:
                         save_image(bgr8_to_jpeg(img), filename, blocked=False)
                         logger.info("not blocked:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
                         robot.forward(FORWARD_SPEED)
