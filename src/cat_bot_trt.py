@@ -49,14 +49,14 @@ logging_config = {
         },
         'console': {
             'class': 'logging.StreamHandler',
-            'level': 'WARN',
+            'level': 'DEBUG',
             'formatter': 'standard',
             'stream': 'ext://sys.stdout'
         }
     },
     'loggers': {
         '__main__': {
-            'handlers': ['default_handler'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': False
         }
@@ -336,7 +336,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                         moving = True
                     elif img is not None and moving:
                         if wait:
-                            wait = False
+                            wait = True
                         else:
                             save_image(bgr8_to_jpeg(img), filename, blocked=True)
                             logger.info("blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
