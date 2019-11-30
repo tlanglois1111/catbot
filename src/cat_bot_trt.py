@@ -322,7 +322,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     counter = 58
     tic = time.time()
     acc_list = []
-    v0 = 0
+    v = np.array([0, 0, 0])
 
     while True:
         img = cam.read()
