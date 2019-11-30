@@ -90,6 +90,7 @@ FORWARD_SPEED = 0.7
 BACKWARD_SPEED = -0.6
 TURNING_SPEED = 0.6
 REVERSE_TIME = 0.7
+BLOCKED_THRESHOLD = 0.01
 
 def parse_args():
     """Parse input arguments."""
@@ -312,6 +313,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
         if imu.IMURead():
             gyro = imu.getIMUData().copy()
             accel = gyro["accel"]
+            logger.info("accel:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
         else:
             gyro = []
 
@@ -327,7 +329,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             if counter > fps:
                 logger.info("fps: %f", fps)
                 if len(gyro) > 0:
-                    if img is not None and moving and accel[0] >= 0.1:
+                    if img is not None and moving and accel[0] > BLOCKED_THRESHOLD:
                         save_image(bgr8_to_jpeg(img), filename, blocked=False)
                         logger.info("not blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
                         robot.forward(FORWARD_SPEED)
