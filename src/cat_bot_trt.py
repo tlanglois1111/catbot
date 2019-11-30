@@ -274,7 +274,7 @@ def get_velocity(gyro):
         acceleration[0] = acceleration[1]
         acceleration[1] = gyro["fusionQPose"]
 
-        velocity[j] = acceleration[0][j] + ((acceleration[1][j] - acceleration[0][j]) / 2) - MAGIC_NUMBER
+        velocity[j] = acceleration[0][j] + ((acceleration[1][j] - acceleration[0][j]) / 2)
         #position[j][1] = position[j][0] + velocity[j][0] + ((velocity[j][1] - velocity[j][0]) / 2)
 
         return velocity
@@ -326,7 +326,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
         if imu.IMURead():
             gyro = imu.getIMUData().copy()
 
-            v = get_velocity(gyro)
+            v = get_velocity(gyro) - MAGIC_NUMBER
 
             logger.info("velocity:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
         else:
