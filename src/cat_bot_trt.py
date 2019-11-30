@@ -270,11 +270,12 @@ MAGIC_NUMBER = 0.0303
 
 
 def get_velocity(v, acceleration):
-    for j in range(0, 3):
-        velocity[j] = v[j] + (acceleration[j] - MAGIC_NUMBER)
-        #position[j][1] = position[j][0] + velocity[j][0] + ((velocity[j][1] - velocity[j][0]) / 2)
+    velocity[0] = v[0] + (acceleration[0] - MAGIC_NUMBER)
+    velocity[1] = v[1] + acceleration[1]
+    velocity[2] = v[2] + acceleration[2]
+    #position[j][1] = position[j][0] + velocity[j][0] + ((velocity[j][1] - velocity[j][0]) / 2)
 
-        return velocity
+    return velocity
 
 
 def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
