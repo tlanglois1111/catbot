@@ -326,7 +326,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
         if imu.IMURead():
             gyro = imu.getIMUData().copy()
             accel = gyro["accel"]
-            logger.info("   accel:  x: %.4f y: %.4f z: %.4f" % (accel[0], accel[1], accel[2]))
+            #logger.info("   accel:  x: %.4f y: %.4f z: %.4f" % (accel[0], accel[1], accel[2]))
 
             acc_list.append(accel)
 
@@ -345,7 +345,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             if counter > fps:
                 logger.info("fps: %f", fps)
                 npl = np.array(acc_list)
-                res = np.sum(npl, 0)
+                res = np.mean(npl, 0)
                 logger.info(res)
                 v = get_velocity(v, res)
                 logger.info(" v:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
