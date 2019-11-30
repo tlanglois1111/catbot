@@ -89,6 +89,7 @@ IMAGE_DIR = '../dataset/cats'
 FORWARD_SPEED = 0.7
 BACKWARD_SPEED = -0.6
 TURNING_SPEED = 0.6
+REVERSE_TIME = 0.7
 
 def parse_args():
     """Parse input arguments."""
@@ -340,7 +341,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                             moving = False
                             wait = True
                             robot.set_motors(BACKWARD_SPEED, BACKWARD_SPEED/2)
-                            time.sleep(0.5)
+                            time.sleep(REVERSE_TIME)
                 counter = 0
 
             # compute all detected objects
