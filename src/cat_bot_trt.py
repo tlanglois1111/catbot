@@ -314,9 +314,14 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             gyro = imu.getIMUData().copy()
             accel = gyro["accel"]
             fusion = gyro["fusionPose"]
-            logger.info(gyro)
-            logger.info("fusion:  x: %.2f y: %.2f z: %.2f" % (fusion[0], fusion[1], fusion[2]))
-            logger.info("accel:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
+            compass = gyro["compass"]
+            gyro1 = gyro["gyro"]
+            fusionq = gyro["fusionQPose"]
+            logger.info(" fusion:  x: %.2f y: %.2f z: %.2f" % (fusion[0], fusion[1], fusion[2]))
+            logger.info("  accel:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
+            logger.info("compass:  x: %.2f y: %.2f z: %.2f" % (compass[0], compass[1], compass[2]))
+            logger.info("   gyro:  x: %.2f y: %.2f z: %.2f" % (gyro1[0], gyro1[1], gyro1[2]))
+            logger.info("fusionq:  x: %.2f y: %.2f z: %.2f" % (fusionq[0], fusionq[1], fusionq[2]))
         else:
             gyro = []
 
