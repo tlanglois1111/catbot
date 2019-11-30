@@ -28,7 +28,7 @@ import RTIMU
 from utils.ssd_classes import get_cls_dict
 from utils.camera import add_camera_args, Camera
 
-from jetbot import Robot,bgr8_to_jpeg
+from jetbot import Robot, bgr8_to_jpeg
 
 logging_config = {
     'version': 1,
@@ -300,22 +300,23 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     counter = 58
     tic = time.time()
     while True:
+        img = cam.read()
         filename = str(uuid1())
         if imu.IMURead():
             gyro = imu.getIMUData().copy()
             accel = gyro["accel"]
-            if accel[0] >= 0.9:
+            if img is not None and accel[0] >= 0.9:
                 save_image(bgr8_to_jpeg(img), filename, blocked=False)
                 logger.info("not blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
                 robot.forward(0.5)
-            else:
+            elif img is not None:
                 save_image(bgr8_to_jpeg(img), filename, blocked=True)
                 logger.info("blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
                 robot.backward(0.5)
                 robot.left(0.4)
         else:
             gyro = []
-        img = cam.read()
+
         if img is not None:
             boxes, confs, clss = trt_ssd.detect(img, conf_th)
             toc = time.time()
