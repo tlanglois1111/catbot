@@ -347,8 +347,6 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                 logger.info(" v:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
                 acc_list = []
 
-            v = get_velocity(gyro)
-
         else:
             gyro = []
 
