@@ -272,6 +272,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
 
     xscale = model_width * (cam.img_width / model_width)
     yscale = model_height * (cam.img_height / model_height)
+    moving = False
 
     settings_path = "../dataset/RTIMULib"
     logger.info("Using settings file %s", settings_path + ".ini")
@@ -305,13 +306,14 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
         if imu.IMURead():
             gyro = imu.getIMUData().copy()
             accel = gyro["accel"]
-            if img is not None and accel[0] >= 0.9:
+            if img is not None and moving and accel[0] >= 0.9:
                 save_image(bgr8_to_jpeg(img), filename, blocked=False)
                 logger.info("not blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
                 robot.forward(0.5)
-            elif img is not None:
+            elif img is not None and moving:
                 save_image(bgr8_to_jpeg(img), filename, blocked=True)
                 logger.info("blocked:  x: %.2f y: %.2f z: %.2f" % (accel[0], accel[1], accel[2]))
+                moving = False
                 robot.backward(0.5)
                 robot.left(0.4)
         else:
@@ -384,6 +386,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                         robot.left(abs(move_speed))
             else:
                 robot.forward(0.5)
+                moving = True
 
 
 def main():
