@@ -273,7 +273,6 @@ def get_velocity(v, acceleration):
     velocity[0] = v[0] + (acceleration[0] - MAGIC_NUMBER)
     velocity[1] = v[1] + acceleration[1]
     velocity[2] = v[2] + acceleration[2]
-    #position[j][1] = position[j][0] + velocity[j][0] + ((velocity[j][1] - velocity[j][0]) / 2)
 
     return velocity
 
@@ -326,8 +325,19 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
         filename = str(uuid1())
         if imu.IMURead():
             gyro = imu.getIMUData().copy()
+            accel = gyro["accel"]
+            fusion = gyro["fusionPose"]
+            compass = gyro["compass"]
+            gyro1 = gyro["gyro"]
+            fusionq = gyro["fusionQPose"]
+            logger.info("velocity:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
+            logger.info("  fusion:  x: %.4f y: %.4f z: %.4f" % (fusion[0], fusion[1], fusion[2]))
+            logger.info("   accel:  x: %.4f y: %.4f z: %.4f" % (accel[0], accel[1], accel[2]))
+            logger.info(" compass:  x: %.4f y: %.4f z: %.4f" % (compass[0], compass[1], compass[2]))
+            logger.info("    gyro:  x: %.4f y: %.4f z: %.4f" % (gyro1[0], gyro1[1], gyro1[2]))
+            logger.info(" fusionq:  x: %.4f y: %.4f z: %.4f" % (fusionq[0], fusionq[1], fusionq[2]))
 
-            acc_list.append(gyro["accel"])
+            acc_list.append(accel)
 
             if counter == 0:
                 npl = np.array(acc_list)
@@ -336,6 +346,8 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                 v = get_velocity(v, res)
                 logger.info(" v:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
                 acc_list = []
+
+            v = get_velocity(gyro)
 
         else:
             gyro = []
