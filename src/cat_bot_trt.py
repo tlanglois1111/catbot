@@ -308,7 +308,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     counter = 58
     tic = time.time()
     old_compass = np.array([0, 0, 0])
-    avg_list = np.array([0,0,0])
+    avg_list = [0,0,0]
 
     while True:
         img = cam.read()
@@ -317,7 +317,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             gyro = imu.getIMUData().copy()
             compass = np.absolute(np.array(gyro["fusionPose"]))
             #logger.info("compass:  x: %.4f y: %.4f z: %.4f" % (compass[0], compass[1], compass[2]))
-            np.append(avg_list, compass, axis=0)
+            avg_list.append(compass)
 
         else:
             gyro = []
@@ -333,7 +333,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             counter += 1
             if counter > fps:
                 logger.info("fps: %f", fps)
-                res = np.mean(avg_list, 0)
+                res = np.mean(np.array(avg_list), 0)
 
                 diff = np.absolute(old_compass - res)
                 logger.info("   diff:  x: %.4f y: %.4f z: %.4f" % (diff[0], diff[1], diff[2]))
