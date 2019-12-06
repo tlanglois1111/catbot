@@ -317,7 +317,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             gyro = imu.getIMUData().copy()
             compass = np.absolute(np.array(gyro["fusionPose"]))
             #logger.info("compass:  x: %.4f y: %.4f z: %.4f" % (compass[0], compass[1], compass[2]))
-            avg_list.append(compass)
+            np.append(avg_list, compass, axis=0)
 
         else:
             gyro = []
