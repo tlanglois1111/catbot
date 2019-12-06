@@ -308,7 +308,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     counter = 58
     tic = time.time()
     old_compass = np.array([0, 0, 0])
-    avg_list = np.array()
+    avg_list = np.array([])
 
     while True:
         img = cam.read()
