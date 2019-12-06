@@ -314,7 +314,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
         filename = str(uuid1())
         if imu.IMURead():
             gyro = imu.getIMUData().copy()
-            compass = np.array(gyro["fusionPose"])
+            compass = np.absolute(np.array(gyro["fusionPose"]))
             #logger.info("compass:  x: %.4f y: %.4f z: %.4f" % (compass[0], compass[1], compass[2]))
 
         else:
@@ -333,7 +333,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                 logger.info("fps: %f", fps)
                 diff = old_compass - compass
                 logger.info("   diff:  x: %.4f y: %.4f z: %.4f" % (diff[0], diff[1], diff[2]))
-                if diff[2] > 0.3:
+                if diff[2] > 1.0:
                     moving = True
                 else:
                     moving = False
@@ -341,19 +341,16 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                 old_compass = compass
                 counter = 0
 
-                """
-                if len(gyro) > 0:
-                    if img is not None and moving:
-                        save_image(bgr8_to_jpeg(img), filename, blocked=False)
-                        logger.info("not blocked")
-                        robot.set_motors(FORWARD_SPEED, FORWARD_SPEED+0.03)
-                        moving = True
-                    elif img is not None and not moving:
-                        save_image(bgr8_to_jpeg(img), filename, blocked=True)
-                        logger.info("blocked")
-                        robot.set_motors(BACKWARD_SPEED, BACKWARD_SPEED/2)
-                        time.sleep(REVERSE_TIME)
-                """
+                if img is not None and moving:
+                    save_image(bgr8_to_jpeg(img), filename, blocked=False)
+                    logger.info("not blocked")
+                    robot.set_motors(FORWARD_SPEED, FORWARD_SPEED+0.03)
+                    moving = True
+                elif img is not None and not moving:
+                    save_image(bgr8_to_jpeg(img), filename, blocked=True)
+                    logger.info("blocked")
+                    robot.set_motors(BACKWARD_SPEED, BACKWARD_SPEED/2)
+                    time.sleep(REVERSE_TIME)
             # compute all detected objects
             detections = []
             for i, (bb, cf, cl) in enumerate(zip(boxes, confs, clss)):
