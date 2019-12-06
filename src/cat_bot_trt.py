@@ -265,16 +265,6 @@ def closest_detection(detections, width, height):
 
 
 moving = False
-velocity = [0, 0, 0]
-MAGIC_NUMBER = 0.0303
-
-
-def get_velocity(v, acceleration):
-    velocity[0] = (v[0] * 0.9) + (acceleration[0] * 0.1)
-    velocity[1] = v[1] + acceleration[1]
-    velocity[2] = v[2] + acceleration[2]
-
-    return velocity
 
 
 def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
@@ -317,18 +307,15 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     fps = 0.0
     counter = 58
     tic = time.time()
-    acc_list = []
-    v = np.array([0, 0, 0])
+    old_compass = np.array([0, 0, 0])
 
     while True:
         img = cam.read()
         filename = str(uuid1())
         if imu.IMURead():
             gyro = imu.getIMUData().copy()
-            accel = gyro["accel"]
-            #logger.info("   accel:  x: %.4f y: %.4f z: %.4f" % (accel[0], accel[1], accel[2]))
-
-            acc_list.append(accel)
+            compass = np.array(gyro["compass"])
+            logger.info("compass:  x: %.4f y: %.4f z: %.4f" % (compass[0], compass[1], compass[2]))
 
         else:
             gyro = []
@@ -344,27 +331,27 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             counter += 1
             if counter > fps:
                 logger.info("fps: %f", fps)
-                npl = np.array(acc_list)
-                res = np.mean(npl, 0)
-                logger.info(res)
-                v = get_velocity(v, res)
-                logger.info(" v:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
-                acc_list = []
+                diff = old_compass - compass
+                logger.info("compass change:  x: %.4f y: %.4f z: %.4f" % (diff[0], diff[1], diff[2]))
+                if diff[1] > 1.0:
+                    moving = True
+                else:
+                    moving = False
+
+                old_compass = compass
                 counter = 0
 
                 if len(gyro) > 0:
-                    if img is not None and moving and v[0] > 0:
+                    if img is not None and moving:
                         save_image(bgr8_to_jpeg(img), filename, blocked=False)
-                        logger.info("not blocked:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
-                        robot.forward(FORWARD_SPEED)
+                        logger.info("not blocked")
+                        robot.set_motors(FORWARD_SPEED, FORWARD_SPEED+0.03)
                         moving = True
-                    elif img is not None and moving:
-                        if True:
-                            save_image(bgr8_to_jpeg(img), filename, blocked=True)
-                            logger.info("blocked:  x: %.4f y: %.4f z: %.4f" % (v[0], v[1], v[2]))
-                            moving = False
-                            robot.set_motors(BACKWARD_SPEED, BACKWARD_SPEED/2)
-                            time.sleep(REVERSE_TIME)
+                    elif img is not None and not moving:
+                        save_image(bgr8_to_jpeg(img), filename, blocked=True)
+                        logger.info("blocked")
+                        robot.set_motors(BACKWARD_SPEED, BACKWARD_SPEED/2)
+                        time.sleep(REVERSE_TIME)
 
             # compute all detected objects
             detections = []
@@ -380,42 +367,42 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             if len(matching_detections) > 0:
                 logger.debug(matching_detections)
 
-            tf_image_list = []
-            for d in matching_detections:
-                bbox = d['bbox']
-                xmin = int(xscale * bbox[0])
-                ymin = int(yscale * bbox[1])
-                xmax = int(xscale * bbox[2])
-                ymax = int(yscale * bbox[3])
-                if xmin < 0:
-                    xmin = 0
-                if ymin < 0:
-                    ymin = 0
-                if xmax > cam.img_width:
-                    xmax = cam.img_width-1
-                if ymax > cam.img_height:
-                    ymax = cam.img_height-1
+                tf_image_list = []
+                for d in matching_detections:
+                    bbox = d['bbox']
+                    xmin = int(xscale * bbox[0])
+                    ymin = int(yscale * bbox[1])
+                    xmax = int(xscale * bbox[2])
+                    ymax = int(yscale * bbox[3])
+                    if xmin < 0:
+                        xmin = 0
+                    if ymin < 0:
+                        ymin = 0
+                    if xmax > cam.img_width:
+                        xmax = cam.img_width-1
+                    if ymax > cam.img_height:
+                        ymax = cam.img_height-1
 
-                tf_image_desc = [filename+'.jpg', cam.img_width, cam.img_height, int(d['label']), xmin, ymin, xmax, ymax]
-                tf_image_list.append(tf_image_desc)
+                    tf_image_desc = [filename+'.jpg', cam.img_width, cam.img_height, int(d['label']), xmin, ymin, xmax, ymax]
+                    tf_image_list.append(tf_image_desc)
 
-            save_image(bgr8_to_jpeg(img), filename, tf_list=tf_image_list)
-            # end save image
+                save_image(bgr8_to_jpeg(img), filename, tf_list=tf_image_list)
+                # end save image
 
-            # get detection closest to center of field of view and center bot
-            det = closest_detection(matching_detections, width=cam.img_width, height=cam.img_height)
-            if det is not None:
-                center = detection_center(det, cam.img_width, cam.img_height)
-                logger.info("center: %s, on object: %s", center, cls_dict[det['label']])
+                # get detection closest to center of field of view and center bot
+                det = closest_detection(matching_detections, width=cam.img_width, height=cam.img_height)
+                if det is not None:
+                    center = detection_center(det, cam.img_width, cam.img_height)
+                    logger.info("center: %s, on object: %s", center, cls_dict[det['label']])
 
-                move_speed = 2.0 * center[0]
-                if abs(move_speed) > 0.3:
-                    if move_speed > 0.0:
-                        robot.right(move_speed)
-                    else:
-                        robot.left(abs(move_speed))
+                    move_speed = 2.0 * center[0]
+                    if abs(move_speed) > 0.3:
+                        if move_speed > 0.0:
+                            robot.right(move_speed)
+                        else:
+                            robot.left(abs(move_speed))
 
-        robot.forward(FORWARD_SPEED)
+        robot.set_motors(FORWARD_SPEED, FORWARD_SPEED+0.03)
         moving = True
 
 
