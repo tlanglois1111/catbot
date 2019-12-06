@@ -337,7 +337,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
 
                 diff = np.absolute(old_compass - res)
                 logger.info("   diff:  x: %.4f y: %.4f z: %.4f" % (diff[0], diff[1], diff[2]))
-                if diff[2] > 0.1:
+                if diff[2] > 0.03:
                     moving = True
                 else:
                     moving = False
