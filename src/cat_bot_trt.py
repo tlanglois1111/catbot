@@ -315,7 +315,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
         if imu.IMURead():
             gyro = imu.getIMUData().copy()
             compass = np.array(gyro["fusionPose"])
-            logger.info("compass:  x: %.4f y: %.4f z: %.4f" % (compass[0], compass[1], compass[2]))
+            #logger.info("compass:  x: %.4f y: %.4f z: %.4f" % (compass[0], compass[1], compass[2]))
 
         else:
             gyro = []
@@ -333,7 +333,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                 logger.info("fps: %f", fps)
                 diff = old_compass - compass
                 logger.info("   diff:  x: %.4f y: %.4f z: %.4f" % (diff[0], diff[1], diff[2]))
-                if diff[1] > 1.0:
+                if diff[2] > 0.3:
                     moving = True
                 else:
                     moving = False
