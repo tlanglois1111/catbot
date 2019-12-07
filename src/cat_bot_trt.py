@@ -10,9 +10,9 @@ import ctypes
 import argparse
 import os
 import threading
-import math
 
 import csv
+from skimage.measure import compare_ssim
 from uuid import uuid1
 
 import logging
@@ -89,7 +89,7 @@ IMAGE_DIR = '../dataset/cats'
 FORWARD_SPEED = 0.7
 BACKWARD_SPEED = -0.6
 TURNING_SPEED = 0.6
-REVERSE_TIME = 1.0
+REVERSE_TIME = 1.5
 BLOCKED_THRESHOLD = 0.0
 
 def parse_args():
@@ -309,8 +309,10 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     tic = time.time()
     old_compass = np.array([0, 0, 0])
     avg_list = []
+    img = None
 
     while True:
+        old_img = img
         img = cam.read()
         filename = str(uuid1())
         if imu.IMURead():
@@ -338,6 +340,14 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                     moving = True
                 else:
                     moving = False
+
+                if moving and old_img is not None:
+                    grayA = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    grayB = cv2.cvtColor(old_img, cv2.COLOR_BGR2GRAY)
+                    (score, diff) = compare_ssim(grayA, grayB, full=True)
+                    logger.info("score: %.4f" % score)
+                    if score > 0.9:
+                        moving = False
 
                 old_compass = res
                 counter = 0
