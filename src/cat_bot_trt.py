@@ -348,7 +348,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                 if img is not None and moving:
                     save_image(bgr8_to_jpeg(img), filename, blocked=False)
                     logger.info("not blocked")
-                    robot.set_motors(FORWARD_SPEED, FORWARD_SPEED+0.03)
+                    robot.set_motors(FORWARD_SPEED, FORWARD_SPEED+0.1)
                     moving = True
                 elif img is not None and not moving:
                     save_image(bgr8_to_jpeg(img), filename, blocked=True)
