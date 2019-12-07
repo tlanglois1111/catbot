@@ -308,7 +308,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     counter = 58
     tic = time.time()
     old_compass = np.array([0, 0, 0])
-    avg_list = [0,0,0]
+    avg_list = [0, 0, 0]
 
     while True:
         img = cam.read()
@@ -318,9 +318,6 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             compass = np.absolute(np.array(gyro["fusionPose"]))
             #logger.info("compass:  x: %.4f y: %.4f z: %.4f" % (compass[0], compass[1], compass[2]))
             avg_list.append(compass)
-
-        else:
-            gyro = []
 
         if img is not None:
             boxes, confs, clss = trt_ssd.detect(img, conf_th)
@@ -344,6 +341,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
 
                 old_compass = res
                 counter = 0
+                avg_list = [0, 0, 0]
 
                 if img is not None and moving:
                     save_image(bgr8_to_jpeg(img), filename, blocked=False)
@@ -355,6 +353,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                     logger.info("blocked")
                     robot.set_motors(BACKWARD_SPEED, BACKWARD_SPEED/2)
                     time.sleep(REVERSE_TIME)
+
             # compute all detected objects
             detections = []
             for i, (bb, cf, cl) in enumerate(zip(boxes, confs, clss)):
