@@ -308,7 +308,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     counter = 58
     tic = time.time()
     old_compass = np.array([0, 0, 0])
-    avg_list = [0, 0, 0]
+    avg_list = []
 
     while True:
         img = cam.read()
@@ -341,7 +341,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
 
                 old_compass = res
                 counter = 0
-                avg_list = [0, 0, 0]
+                avg_list = []
 
                 if img is not None and moving:
                     save_image(bgr8_to_jpeg(img), filename, blocked=False)
