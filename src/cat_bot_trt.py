@@ -342,12 +342,14 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                     moving = False
 
                 if moving and old_img is not None:
+                    same_image = False
                     grayA = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                     grayB = cv2.cvtColor(old_img, cv2.COLOR_BGR2GRAY)
                     (score, diff) = compare_ssim(grayA, grayB, full=True)
                     logger.info("score: %.4f" % score)
                     if score > 0.9:
                         moving = False
+                        same_image = True
 
                 old_compass = res
                 counter = 0
@@ -358,7 +360,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                     logger.info("not blocked")
                     robot.set_motors(FORWARD_SPEED, FORWARD_SPEED+0.1)
                     moving = True
-                elif img is not None and not moving:
+                elif img is not None and not moving and not same_image:
                     save_image(bgr8_to_jpeg(img), filename, blocked=True)
                     logger.info("blocked")
                     robot.set_motors(BACKWARD_SPEED, BACKWARD_SPEED/2)
