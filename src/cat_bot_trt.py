@@ -286,10 +286,8 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     fps = 0.0
     counter = 58
     tic = time.time()
-    img = None
 
     while True:
-        old_img = img
         img = cam.read()
         filename = str(uuid1())
 
@@ -309,15 +307,15 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             tic = toc
 
             if value_changed:
-                if value == GPIO.HIGH:
-                    save_image(bgr8_to_jpeg(img), filename, blocked=False)
-                    logger.info("not blocked")
-                    robot.set_motors(FORWARD_SPEED, FORWARD_SPEED)
-                else:
+                if value == GPIO.LOW:
                     save_image(bgr8_to_jpeg(img), filename, blocked=True)
                     logger.info("blocked")
                     robot.set_motors(BACKWARD_SPEED, BACKWARD_SPEED/2)
                     time.sleep(REVERSE_TIME)
+            elif counter > fps and value == GPIO.HIGH:
+                save_image(bgr8_to_jpeg(img), filename, blocked=False)
+                logger.info("not blocked")
+                robot.set_motors(FORWARD_SPEED, FORWARD_SPEED)
 
             counter += 1
             if counter > fps:
@@ -373,7 +371,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                         else:
                             robot.left(abs(move_speed))
 
-        robot.set_motors(FORWARD_SPEED, FORWARD_SPEED+0.03)
+        robot.set_motors(FORWARD_SPEED, FORWARD_SPEED)
 
 
 def main():
@@ -392,12 +390,14 @@ def main():
     robot = Robot()
 
     logger.info('starting to loop and detect')
-    loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, model=args.model)
-
-    logger.info('cleaning up')
-    robot.stop()
-    cam.stop()
-    cam.release()
+    try:
+        loop_and_detect(cam=cam, trt_ssd=trt_ssd, conf_th=0.3, robot=robot, model=args.model)
+    finally:
+        logger.info('cleaning up')
+        GPIO.cleanup()
+        robot.stop()
+        cam.stop()
+        cam.release()
 
 
 if __name__ == '__main__':
