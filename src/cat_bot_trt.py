@@ -310,6 +310,7 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     old_compass = np.array([0, 0, 0])
     avg_list = []
     img = None
+    same_image = False
 
     while True:
         old_img = img
@@ -347,9 +348,20 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                     grayB = cv2.cvtColor(old_img, cv2.COLOR_BGR2GRAY)
                     (score, diff) = compare_ssim(grayA, grayB, full=True)
                     logger.info("score: %.4f" % score)
-                    if score > 0.9:
+                    if score > 0.04:
                         moving = False
                         same_image = True
+
+                if not moving and old_img is not None:
+                    same_image = False
+                    grayA = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    grayB = cv2.cvtColor(old_img, cv2.COLOR_BGR2GRAY)
+                    (score, diff) = compare_ssim(grayA, grayB, full=True)
+                    logger.info("score: %.4f" % score)
+                    if score < 0.04:
+                        moving = True
+                        same_image = True
+
 
                 old_compass = res
                 counter = 0
