@@ -12,7 +12,6 @@ import os
 import threading
 
 import csv
-from skimage.measure import compare_ssim
 from uuid import uuid1
 
 import logging
@@ -23,7 +22,7 @@ import cv2
 import pycuda.autoinit  # This is needed for initializing CUDA driver
 import pycuda.driver as cuda
 import tensorrt as trt
-import RTIMU
+import Jetson.GPIO as GPIO
 
 from utils.ssd_classes import get_cls_dict
 from utils.camera import add_camera_args, Camera
@@ -83,7 +82,7 @@ SUPPORTED_MODELS = [
     'ssd_mobilenet_v1_coco',
     'ssd_mobilenet_v1_egohands',
     'ssd_mobilenet_v2_coco',
-    'ssd_mobilenet_v2_egohands',
+    'ssd_mobilenet_v2_egohands'
 ]
 IMAGE_DIR = '../dataset/cats'
 FORWARD_SPEED = 0.7
@@ -91,6 +90,8 @@ BACKWARD_SPEED = -0.6
 TURNING_SPEED = 0.6
 REVERSE_TIME = 1.5
 BLOCKED_THRESHOLD = 0.0
+
+GPIO_INPUT_PIN = 13
 
 def parse_args():
     """Parse input arguments."""
@@ -256,7 +257,6 @@ def closest_detection(detections, width, height):
     # Finds the detection closest to the image center
     closest_detection = None
     for det in detections:
-        center = detection_center(det, width, height)
         if closest_detection is None:
             closest_detection = det
         elif norm(detection_center(det, width, height)) < norm(detection_center(closest_detection, width, height)):
@@ -264,11 +264,12 @@ def closest_detection(detections, width, height):
     return closest_detection
 
 
-moving = False
-
-
 def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
-    global moving
+
+    prev_value = None
+    GPIO.setmode(GPIO.BOARD)
+    GPIO.setup(GPIO_INPUT_PIN, GPIO.IN)  # set pin as an input pin
+
     """Loop, grab images from camera, and do object detection.
 
     # Arguments
@@ -281,46 +282,23 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
     xscale = model_width * (cam.img_width / model_width)
     yscale = model_height * (cam.img_height / model_height)
 
-    settings_path = "../dataset/RTIMULib"
-    logger.info("Using settings file %s", settings_path + ".ini")
-    if not os.path.exists(settings_path + ".ini"):
-        logger.error("Settings file does not exist, will be created")
-
-    s = RTIMU.Settings(settings_path)
-    imu = RTIMU.RTIMU(s)
-
-    logger.info("IMU Name: %s", imu.IMUName())
-
-    if not imu.IMUInit():
-        logger.error("IMU Init Failed")
-    else:
-        logger.info("IMU Init Succeeded")
-        imu.setSlerpPower(0.02)
-        imu.setGyroEnable(True)
-        imu.setAccelEnable(True)
-        imu.setCompassEnable(True)
-
-        poll_interval = imu.IMUGetPollInterval()
-        logger.info("Recommended Poll Interval: %f", poll_interval)
-
     cls_dict = get_cls_dict(model.split('_')[-1])
     fps = 0.0
     counter = 58
     tic = time.time()
-    old_compass = np.array([0, 0, 0])
-    avg_list = []
     img = None
-    same_image = False
 
     while True:
         old_img = img
         img = cam.read()
         filename = str(uuid1())
-        if imu.IMURead():
-            gyro = imu.getIMUData().copy()
-            compass = np.absolute(np.array(gyro["fusionPose"]))
-            #logger.info("compass:  x: %.4f y: %.4f z: %.4f" % (compass[0], compass[1], compass[2]))
-            avg_list.append(compass)
+
+        value = GPIO.input(GPIO_INPUT_PIN)
+        if value != prev_value:
+            value_changed = True
+            prev_value = value
+        else:
+            value_changed = False
 
         if img is not None:
             boxes, confs, clss = trt_ssd.detect(img, conf_th)
@@ -330,53 +308,21 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
             fps = curr_fps if fps == 0.0 else (fps*0.9 + curr_fps*0.1)
             tic = toc
 
-            counter += 1
-            if counter > fps:
-                logger.info("fps: %f", fps)
-                res = np.mean(np.array(avg_list), 0)
-
-                diff = np.absolute(old_compass - res)
-                logger.info("   diff:  x: %.4f y: %.4f z: %.4f" % (diff[0], diff[1], diff[2]))
-                if diff[2] > 0.05:
-                    moving = True
-                else:
-                    moving = False
-
-                if moving and old_img is not None:
-                    same_image = False
-                    grayA = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                    grayB = cv2.cvtColor(old_img, cv2.COLOR_BGR2GRAY)
-                    (score, diff) = compare_ssim(grayA, grayB, full=True)
-                    logger.info("score: %.4f" % score)
-                    if score > 0.04:
-                        moving = False
-                        same_image = True
-
-                if not moving and old_img is not None:
-                    same_image = False
-                    grayA = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                    grayB = cv2.cvtColor(old_img, cv2.COLOR_BGR2GRAY)
-                    (score, diff) = compare_ssim(grayA, grayB, full=True)
-                    logger.info("score: %.4f" % score)
-                    if score < 0.04:
-                        moving = True
-                        same_image = True
-
-
-                old_compass = res
-                counter = 0
-                avg_list = []
-
-                if img is not None and moving:
+            if value_changed:
+                if value == GPIO.HIGH:
                     save_image(bgr8_to_jpeg(img), filename, blocked=False)
                     logger.info("not blocked")
-                    robot.set_motors(FORWARD_SPEED, FORWARD_SPEED+0.1)
-                    moving = True
-                elif img is not None and not moving and not same_image:
+                    robot.set_motors(FORWARD_SPEED, FORWARD_SPEED)
+                else:
                     save_image(bgr8_to_jpeg(img), filename, blocked=True)
                     logger.info("blocked")
                     robot.set_motors(BACKWARD_SPEED, BACKWARD_SPEED/2)
                     time.sleep(REVERSE_TIME)
+
+            counter += 1
+            if counter > fps:
+                logger.info("fps: %f", fps)
+                counter = 0
 
             # compute all detected objects
             detections = []
@@ -428,7 +374,6 @@ def loop_and_detect(cam, trt_ssd, conf_th, robot, model):
                             robot.left(abs(move_speed))
 
         robot.set_motors(FORWARD_SPEED, FORWARD_SPEED+0.03)
-        moving = True
 
 
 def main():
